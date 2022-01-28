@@ -24,9 +24,7 @@ This is an analysis of the portrayal of human, machine and cyborg characters in 
 This paper asks how fictional characters interactions with machine vision technologies are portrayed.
 
 # Prior research
-While there are many studies analysing gender representation in videogames, movies and other media, most use content analysis to count presence. We wanted to go beyond that and learn whether different kinds of people are imagined to be using machine vision in different ways.
-
-
+While there are many studies analysing gender representation in videogames, movies and other media, most use content analysis to count presence. We wanted to go beyond that and how different kinds of people are imagined to be using machine vision in different ways. 
 
 # Method
 
@@ -36,6 +34,7 @@ We used R and the Tidyverse library to import data about characters and machine 
 
 Situations are (DESCRIBE). We imported data about each situation (situations.csv) and selected the data describing individual characters and verbs that describe what each character *does* with machine vision in the situation.
 
+Please see
 
 ```{r, echo = FALSE, message = FALSE}
 
@@ -104,14 +103,21 @@ Situations <- read_csv(
   "data/situations.csv",
   col_types = cols(
     SituationID = col_integer(),
-    Situation = col_skip(),
+    SituationTitle = col_skip(),
     Genre = col_character(),
+    GenreID = col_skip(), 
     Character = col_character(),
     Entity = col_skip(),
     Technology = col_skip(),
     Verb = col_character()
   )
 )
+
+# Filter just the three main genres - since narratives have subgenres (Movie, 
+# Novel, etc) there would be a lot of duplicate info if we kept them.
+
+Situation_verbs <- filter(
+        Situations, Genre=="Art"|Genre=="Narrative"|Genre=="Game")
 
 # The fifth row has an NA in the Character and CharacterID columns - that 
 # means that there is no value there. The verb in the verb column belongs 
@@ -129,9 +135,12 @@ Character_verbs <- merge(
         select(Character, SituationID, Genre, Verb, HumanOrMachine, Gender, 
                 RaceOrEthnicity, Age, Sexuality)
 
+                      
+
 ```
 
 ## What kinds of characters interact with machine vision?
+
 
 ```{r}
 Characters %>% 
@@ -141,7 +150,7 @@ Characters %>%
 
 ```
 
-There are considerably more male than female humans characters. Interestingly the genders are more even among the robots. You can also see that there aren't many NAs for gender - most of the characters were represented in a way that clearly expressed a specific gender. The machine characters were an exception.
+There are considerably more male than female humans. Interestingly the genders are more even among the robots. You can also see that there aren't many NAs for gender - most of the characters were represented in a way that clearly expressed a specific gender. The machine characters were an exception.
 
 We used separate tags for "Machine" and "Cyborg" species because we were interested in the agency of humans in comparison to non-humans, and the cyborg seemed a potentially interesting hybrid categori. We tagged robots and androids, as well as AI systems, as the "Machine" species, and defined "Cyborg" as "A being with both organic and mechanical/machinic body parts."
 
