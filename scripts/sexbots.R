@@ -12,7 +12,7 @@
 # in an Excel spreadsheet, exported as csv, then used dput() to generate the
 # structure which allows me to make it a dataframe. I think it's most
 # transparent to just have the data in a script like below rather than creating 
-# a separate csv file since the data isn't mine. 
+# a separate csv file since the data isn't mine.
 # 
 # Here is a version that only includes gender and sexuality that I used to ask 
 # a question about this on StackExchange: 
