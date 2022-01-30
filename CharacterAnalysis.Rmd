@@ -1,7 +1,11 @@
 ---
 title: "What Fictional Machine and Human Characters Do With Machine Vision Technologies"
-subtitle: 
-author: "Jill Walker Rettberg, Marianne Gunderson, Linda Kronman, Ragnhild Solberg"
+subtitle: "Work in progress - please do not cite"
+author: 
+- Jill Walker Rettberg, University of Bergen, jill.walker.rettberg@uib.no
+- Marianne Gunderson
+- Linda Kronman
+- Ragnhild Solberg
 date: "`r Sys.Date()`" 
 output:
   html_document:
@@ -12,11 +16,12 @@ output:
 ---
 
 ## To do:
-1. Go through all the scripts and rewrite now that I revised Characters to make it simpler.
-2. Add overview of other content analysis that's comparable
-3. Figure out how to get Zotero connected and add references
-4. Do more analysis of the character traits in combo with the verbs
-5. Figure out to what extend other team members will be involved - they already contributed some of the writing for the first version so probably need to be included, think about HOW. 
+
+1.  Go through all the scripts and rewrite now that I revised Characters to make it simpler.
+2.  Add overview of other content analysis that's comparable
+3.  Figure out how to get Zotero connected and add references
+4.  Do more analysis of the character traits in combo with the verbs
+5.  Figure out to what extend other team members will be involved - they already contributed some of the writing for the first version so probably need to be included, think about HOW.
 
 # Introduction
 
@@ -31,9 +36,10 @@ This is an analysis of the portrayal of human, machine and cyborg characters in 
 This paper asks how fictional characters interactions with machine vision technologies are portrayed.
 
 # Prior research
+
 While there are many studies analysing gender representation in videogames, movies and other media, most use content analysis to count presence. We wanted to go beyond that and how different kinds of people are imagined to be using machine vision in different ways.
 
-One 
+One
 
 # Method
 
@@ -45,7 +51,7 @@ Situations are (DESCRIBE). We imported data about each situation (situations.csv
 
 Please see
 
-```{r, echo = FALSE, message = FALSE}
+```{r, setup, echo = FALSE, message = FALSE}
 
 library(tidyverse)
 library(RColorBrewer)
@@ -147,8 +153,7 @@ Character_verbs <- merge(
 
 ## What kinds of characters interact with machine vision?
 
-
-```{r}
+```{r, character_race}
 Characters %>% 
         ggplot() +
         geom_bar(aes(y = RaceOrEthnicity, fill = Gender)) +
@@ -160,25 +165,59 @@ There are considerably more male than female humans. Interestingly the genders a
 
 We used separate tags for "Machine" and "Cyborg" species because we were interested in the agency of humans in comparison to non-humans, and the cyborg seemed a potentially interesting hybrid categori. We tagged robots and androids, as well as AI systems, as the "Machine" species, and defined "Cyborg" as "A being with both organic and mechanical/machinic body parts."
 
-TRYING TO MAKE A TABLE
-https://stackoverflow.com/questions/29549731/finding-percentage-in-a-sub-group-using-group-by-and-summarise
+TRYING TO MAKE A TABLE <https://stackoverflow.com/questions/29549731/finding-percentage-in-a-sub-group-using-group-by-and-summarise>
 
 ### Comparing with the representation in ...
 
 This compares (how) to Nicola Döring and Sandra Poeschl's 2019 content analysis of the portrayal of sexual relationships between humans and robots in fiction and non-fiction, which is one of the few studies to explore characteristics of relationships between humans and technologies.
 
-```{r}
-# The data for sexbots is taken from Table 3 in 
+\*\*NB: Not much point in including sexuality as a property of humans or robots since it's actually a property of hte *relationship*, not the individual.\*\*
+
+Also need to actaully COMPARE with my data. Maybe put in same table, somehow?
+
+```{r sexbots}
+
+# A simple visualisation of the distribution of gender and 
+# sexuality as found in this paper:
 # 
 # Döring, N., Poeschl, S. Love and Sex with Robots: A Content Analysis of 
 # Media Representations. Int J of Soc Robotics 11, 665–677 (2019). 
 # https://doi.org/10.1007/s12369-019-00517-y
 # 
-# 
+# I manually copied the data for sexbots from [Table 3]
+# (https://link.springer.com/article/10.1007/s12369-019-00517-y/tables/3) in 
+# the paper, using the values form the column % under Fictional media. It's
+# important to realise that the numbers are PERCENTAGES.
 
+sexbots <- structure(list(
+        Variables = c("Female", "Male", "Child", "Adult", "Elderly", 
+                      "Heterosexual", "Homosexual", "Other"), 
+        Human = c(43, 62, 27, 57, 2, 78, 21, 1), 
+        Robot = c(46, 55, 23, 55, NA, 78, 21, 1), 
+        Type = c("Gender", "Gender", "Age", "Age", "Age", "Sexuality", 
+                 "Sexuality", "Sexuality")),
+        row.names = c(NA, -8L), 
+        class = c("tbl_df", "tbl", "data.frame"))
+
+ggplot(data = sexbots, group = Type) +
+        geom_col(mapping=aes(x = Variables,
+                             y = Human,
+                             fill = Type)) +
+        ggtitle("Characteristics of humans who had sexual relationships with robots") +
+        ylab("Percentage of sample") +
+        xlab("Traits") +
+        facet_wrap(~ Type, scale="free_x")
+        
+ggplot(data = sexbots, group = Type) +
+        geom_col(mapping=aes(x = Variables,
+                             y = Robot,
+                             fill = Type)) +
+        ggtitle("Characteristics of robots who had sexual relationships with humans") +
+        ylab("Percentage of sample") +
+        xlab("Traits") +
+        facet_wrap(~ Type, scale="free_x")
                 
 ```
-
 
 ## Human Sexuality
 
@@ -213,26 +252,17 @@ Let's make a new table called "Robots" that just has the robots and cyborgs and 
 *OK; I haven't figure that out yet but look at this ;)*
 
 ```{r}
-Characters %>% 
+Characters %>%
+        drop_na(Sexuality) %>%
         ggplot() +
-        geom_bar(aes(y = RaceOrEthnicity, fill = Gender)) +
-        facet_grid(. ~ HumanOrMachine)
+        geom_bar(aes(y=Sexuality, fill = Gender)) +
+        facet_wrap(.~HumanOrMachine)
+
 
 ```
-Here are the characters that *don't* have an explicit sexuality - huh, did I make a mistake? Are there MORE humans without an explicit sexuality?
-```{r}
-Characters %>% 
-        filter(is.na(Sexuality)) %>% 
-        group_by(HumanOrMachine) %>% 
-        ggplot() +
-        geom_bar(aes(x=Sexuality, fill = HumanOrMachine))+
-        facet_grid(space="free_y")
 
-```
 
 Maybe a table would be a better way of representing this data, so we can see which machine characters are portrayed as having a sexual preference.
-
-
 
 ```{r}
 # OK, this is old code - I changed Characters. Not comple.
@@ -251,7 +281,7 @@ Maybe a table would be a better way of representing this data, so we can see whi
 
 ## Oops
 
-- the followign analysis is for a version of this that no longer works sigh
+-   the followign analysis is for a version of this that no longer works sigh
 
 Emily at the top of that list is the narrator of the novel [*Emily Eternal*](https://machine-vision.no/creative-work/emily-eternal) by M.G. Wheaton (2019). She is an artificial intelligence designed by MIT researchers to feel empathy with humans, and she is experienced as physically present by humans who wear an interface chip that allows Emily to interface directly with their brains. In the first pages of the novel this is explained to the reader:
 
@@ -348,9 +378,7 @@ Character_verbs %>%
         axis.text.x = element_blank())
 ```
 
-
-(the following is from SLSA version) 
-Notably, the male characters are portrayed as having far more active relationships with machine vision technologies than characters of other genders are. This indicates that women are more often portrayed as the object being acted upon by machine vision, while men are more often portrayed as active subjects making use of machine vision to further their own agency. While both men and women in the dataset are often portrayed to be watching, women are more frequently being watched, while men are a lot more likely to be the ones doing the watching rather than being watched. Men are also more likely to be killed by machine vision technologies, and there are more male characters overall in our dataset.
+(the following is from SLSA version) Notably, the male characters are portrayed as having far more active relationships with machine vision technologies than characters of other genders are. This indicates that women are more often portrayed as the object being acted upon by machine vision, while men are more often portrayed as active subjects making use of machine vision to further their own agency. While both men and women in the dataset are often portrayed to be watching, women are more frequently being watched, while men are a lot more likely to be the ones doing the watching rather than being watched. Men are also more likely to be killed by machine vision technologies, and there are more male characters overall in our dataset.
 
 Overall, this confirms typical gender stereotypes. Apparently, the machine gaze is often aligned with the male gaze we know from decades of cinema (Mulvey 1975), where men watch and people who are not men are watched. Women do use machine vision technologies to watch others almost as often as they are watched, though, and it's worth noting that communicating is a very common use for both men and women, although more so for women. Killing and being killed almost only happen to male characters in our dataset.
 
@@ -398,15 +426,16 @@ Overall, this confirms typical gender stereotypes. Apparently, the machine gaze 
 ```
 
 # To do - more visualisations to make
-1. Make a new column with values active or passive and use facet_grid() to make two different graphs based on that.
-2. Try putting the bars for machines/humans on top of each other (in same graph)
-3. Try making verbs proportional rather than a simple count so it’s easier to compare machine/human.
-4. Add some charts showing how many characters of each gender etc.
-5. Could select just a few verbs (killing/killed? Scanning/Scanned?) and do more detailed graphs of the characters that use those verbs.
-6. Connect to technologies, entities in situations?
-7. Change colour palette - find the colourblind-friendly palette.
-8. Obviously connect to close readings.
-9. Create node and edge tables and feed into Gephi.
+
+1.  Make a new column with values active or passive and use facet_grid() to make two different graphs based on that.
+2.  Try putting the bars for machines/humans on top of each other (in same graph)
+3.  Try making verbs proportional rather than a simple count so it's easier to compare machine/human.
+4.  Add some charts showing how many characters of each gender etc.
+5.  Could select just a few verbs (killing/killed? Scanning/Scanned?) and do more detailed graphs of the characters that use those verbs.
+6.  Connect to technologies, entities in situations?
+7.  Change colour palette - find the colourblind-friendly palette.
+8.  Obviously connect to close readings.
+9.  Create node and edge tables and feed into Gephi.
 10. Test other kinds of graph.
 11. What if the grid takes gender as main factor rather than species?
 12. Bring genre art/game/narrative back and run the verbs based on that.
@@ -417,14 +446,11 @@ UPDATE THIS - THIS IS FROM SLSA PAPER
 
 Most research on fictional and artistic depictions of technologies uses literary analysis and close reading as its method. We hope that using digital humanities methodologies will allow us to say something about the larger picture, and that it will generate new research questions that can be explored in more nuance and detail through close readings. Quantitative analysis can suggest overall tendencies and patterns, but to really understand how machine vision technologies are portrayed in art, games and narratives we will need to follow up the distant reading with close readings. Combining exploratory analysis as in this paper with "the beauty of small data," as Gabriel Recchia puts it (2020, 389), will be a major part of our future research, and we have begun to publish some of this, such as Linda Kronman's analysis of digital art and machine vision (Kronman 2020).
 
-
-
 # CRediT author statement
 
 NB, check this - did everyone participate enough in this part of the project? How to credit for database work etc if they didn't do much of the analysis? How much writing is required to be included as Writing - Original Draft? Maybe Jenny also should be included?
 
-**Jill Walker Rettberg**: Conceptualization, Methodology, Investigation, Data curation, Formal Analysis, Writing – Original Draft, Writing – Review & Editing, Visualization, Supervision, Project Administration, Funding acquisition **Ragnhild Solberg**: Methodology, Investigation, Data curation, Writing – Original Draft **Linda Kronman**: Methodology, Investigation, Data curation, Writing – Original Draft **Marianne Gunderson**: Methodology, Investigation, Data curation, Writing – Original Draft **Stein Magne Bjørklund**: Software, Data curation **Linn Heidi Stokkedal**: Methodology, Investigation, Data curation, Project Administration **Kurdin Jacob**: Investigation, Data curation, Project Administration  **Gabriele de Seta**: Investigation, Project Administration **Annette Markham**: Methodology.
-
+**Jill Walker Rettberg**: Conceptualization, Methodology, Investigation, Data curation, Formal Analysis, Writing -- Original Draft, Writing -- Review & Editing, Visualization, Supervision, Project Administration, Funding acquisition **Ragnhild Solberg**: Methodology, Investigation, Data curation, Writing -- Original Draft **Linda Kronman**: Methodology, Investigation, Data curation, Writing -- Original Draft **Marianne Gunderson**: Methodology, Investigation, Data curation, Writing -- Original Draft **Stein Magne Bjørklund**: Software, Data curation **Linn Heidi Stokkedal**: Methodology, Investigation, Data curation, Project Administration **Kurdin Jacob**: Investigation, Data curation, Project Administration **Gabriele de Seta**: Investigation, Project Administration **Annette Markham**: Methodology.
 
 # Acknowledgements
 
