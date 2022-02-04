@@ -1,3 +1,9 @@
-Species,Female,Male,Child,Adult,Elderly,Heterosexual,Homosexual,Other
-Human,43,62,27,57,2,78,21,1
-Robot,46,55,23,55,NA,78,21,1
+Variables,Human,Robot
+Female,43,46
+Male,62,55
+Child,27,23
+Adult,57,55
+Elderly,2,NA
+Heterosexual,78,78
+Homosexual,21,21
+Other,1,1
