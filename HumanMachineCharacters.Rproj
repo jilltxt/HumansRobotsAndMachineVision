@@ -11,3 +11,5 @@ Encoding: UTF-8
 
 RnwWeave: Sweave
 LaTeX: pdfLaTeX
+
+ZoteroLibraries: "Machine Vision in Everyday Life","My Library"
