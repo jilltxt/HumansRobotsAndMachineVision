@@ -357,8 +357,8 @@ CharacterID,Character,Species,Gender,RaceOrEthnicity,Age,Sexuality,IsGroup,IsCus
 2181,Mystique,Human,Female,White,Adult,Unknown,False,False
 2173,"Captain Canady",Human,Male,White,Adult,Unknown,False,False
 2172,"General Hux",Human,Male,White,Adult,Unknown,False,False
-2164,C-3PO,Machine,"Non-binary or Other",Unknown,Unknown,Unknown,False,False
-2163,R2-D2,Machine,"Non-binary or Other",Unknown,Unknown,Unknown,False,False
+2164,C-3PO,Machine,Male,Unknown,Unknown,Unknown,False,False
+2163,R2-D2,Machine,Male,Unknown,Unknown,Unknown,False,False
 2161,Snoke,Fictional,Male,White,Elderly,Unknown,False,False
 2160,"Luke Skywalker",Human,Male,White,Elderly,Heterosexual,False,False
 2159,"Leia Skywalker Organa Solo",Human,Female,White,Elderly,Heterosexual,False,False
@@ -635,7 +635,7 @@ CharacterID,Character,Species,Gender,RaceOrEthnicity,Age,Sexuality,IsGroup,IsCus
 813,"Quinn Ergon",Human,Female,Black,Adult,Unknown,False,False
 811,"Gary Goodspeed",Human,Male,White,Adult,Heterosexual,False,False
 808,"Ash Graven",Fictional,Female,Unknown,Adult,Unknown,False,False
-807,Hue,Machine,"Non-binary or Other",Unknown,Unknown,Unknown,False,False
+807,Hue,Machine,Unknown,Unknown,Unknown,Unknown,False,False
 804,"The Flemming Family",Human,Unknown,White,Unknown,Unknown,True,False
 803,"""Mood Killer""",Human,"Non-binary or Other",White,Adult,Unknown,False,False
 800,"""Devin the Dude""",Human,Male,Black,Adult,Unknown,False,False
