@@ -1,0 +1,684 @@
+---
+title: "What do fictional characters do with machine vision in games, novels and movies?"
+author: "Jill Walker Rettberg"
+subtitle: Network analysis based on data from the Machine Vision database
+output:
+  html_document:
+    df_print: paged
+---
+
+# Loading the network
+
+The network is generated from merging the characters.csv file, which describes each of the characters in the database, with `situations.csv`, which describes each "machine vision situation" we identified in the 500 creative works (novels, movies, videogames and artworks). We are only using the information about what characters do with machine vision technologies, and leave the other information (what is the technology doing, what are entities like governments or law enforcement doing) alone.
+
+This gives us a dataframe we'll call Character_verbs with a list of each character, their traits (gender, species, race, age and sexuality), and verbs describing the actions they take when interacting with machine vision. The verbs are either active (-ing verbs) or passive (-ed verbs) so we'll add a TRUE/FALSE column called VerbActive.
+
+```{r setup}
+
+library(tidyverse)
+library(RColorBrewer)
+library(igraph)
+library(multiplex)
+library(ggraph)
+library(graphlayouts)
+
+
+#Import characters file (../data/Characters.csv)
+#define column types and factors
+AllCharacters <- read_csv(
+  "https://github.com/jilltxt/HumansRobotsAndMachineVision/raw/main/data/characters.csv",
+  col_types = cols(
+    CharacterID = col_integer(),
+    Character = col_character(),
+    Species = col_factor(levels = c(
+      "Animal", "Cyborg", "Fictional", 
+      "Human", "Machine", "Unknown")),
+    Gender = col_factor(levels = c(
+      "Female","Male","Non-binary or Other", "Trans Woman",
+      "Unknown")),
+    RaceOrEthnicity = col_factor(levels = c(
+      "Asian", "Black", "White", "Person of Colour", "Immigrant", "Indigenous",
+      "Complex", "Unknown")),
+    Age = col_factor(levels = c(
+      "Child", "Young Adult", "Adult", "Elderly", 
+      "Unknown")),
+    Sexuality = col_factor(levels = c(
+      "Homosexual", "Heterosexual", "Bi-sexual", "Other",
+      "Unknown")),
+    IsGroup = col_logical(),
+    IsCustomizable = col_logical()
+  )
+)
+
+# Define Characters as the subset of AllCharacters that are not group characters or 
+# customizable characters.
+# 
+# Convert "Unknown" values to NA. 
+# 
+# Simplify Species to just three species: human, machine or other (or NA)
+# 
+# Simplify RaceOrEthnicity to just two options, White, PoC - or NA.
+# 
+# NB: There are potential issues about simplifying race/ethnicity like this, 
+# but given how messy our original categories are, and how few occurrances 
+# there are of some, this seems the tidiest solution. The most problematic aspect 
+# is that it merges Asian characters in with other PoC, but actually many 
+# (most?) of the Asian characters are in works set in Asia so they are not 
+# minority characters. Will write more about ethical aspects of trying to 
+# count race at all elsewhere - note that this is a characteristic of the 
+# REPRESENTATION of race/ethnicity, not "real" categories or descriptions of 
+# real people. Use with caution.
+# 
+# Select relevant columns.
+
+Characters <- AllCharacters %>% 
+        filter(IsGroup == FALSE & IsCustomizable == FALSE) %>% 
+        na_if("Unknown") %>% 
+        mutate(Species = recode(Species, 
+                               "Machine" = "Robot",
+                               "Cyborg" = "Robot",
+                               "Human" = "Human",
+                               .default = "Other")) %>% 
+        mutate(Race = recode(RaceOrEthnicity,  
+                             "Asian" = "PoC", 
+                             "Black" = "PoC", 
+                             "White" = "White", 
+                             "Person of Colour" = "PoC",
+                             "Indigenous" = "PoC",
+                             "Immigrant" = "PoC",
+                             "Complex"  = "PoC")) %>% 
+        select(Character, Species, Gender, Sexuality, 
+               Race, Age)
+
+# To figure out what these characters actually do with the machine vision we need 
+# to load data about the Situations in which they interact with machine vision
+# technologies in the creative works in our sample.
+# 
+# The following code imports data about the Situations from situations.csv, 
+# sets the column types, and also tells R to skip the columns we’re not going 
+# to need for this analysis.
+
+# NB characterID isn't in this export, fix later (add column back in)
+# Also remove GenreID later
+
+Situations <- read_csv(
+  "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/situations.csv",
+  col_types = cols(
+    SituationID = col_integer(),
+    Situation = col_skip(),
+    Genre = col_character(),
+    GenreID = col_skip(), 
+    Character = col_character(),
+    Entity = col_skip(),
+    Technology = col_skip(),
+    Verb = col_character()
+  )
+)
+
+# Filter just the three main genres - since narratives have subgenres (Movie, 
+# Novel, etc) there would be a lot of duplicate info if we kept them.
+
+# The fifth row has an NA in the Character and CharacterID columns - that 
+# means that there is no value there. The verb in the verb column belongs 
+# to an Entity or a Technology, not to a Character. We need to delete all the 
+# rows with missing data.
+
+Situations <- drop_na(Situations, Character) # replace w/CharID later
+
+# Now we combine the two dataframes using the CharacterID (for now: Character) 
+# column as the shared information.
+Character_verbs <- merge(
+        x = Situations, y = Characters, 
+        by = "Character") %>% 
+                        # replace w/CharID later
+        select(Character, SituationID, Genre, Verb, Species, Gender, 
+                Race, Age, Sexuality)
+
+nodes_and_edges <- Character_verbs %>%
+        add_count(Verb, name = "VerbCount") %>%
+        arrange(desc(VerbCount)) %>%
+        filter(VerbCount>20) %>%     #remove verbs that aren't used much
+        mutate(VerbActive = (str_detect(Verb, "ing"))) 
+
+# the mutate() creates a new col TRUE if -ing verb
+
+# TODO: Add in Genre again when we have a new Situations export without duplicate genres for U. 
+
+nodes_chars <- nodes_and_edges %>% 
+        select(Title = Character, Species, Gender, Race, Age, Sexuality) %>% 
+        add_column(NodeType = "Character", 
+                   VerbCount = NA, 
+                   VerbActive = NA) %>% 
+        select(Title, NodeType, Species, Gender, Race, Age, Sexuality, VerbCount, VerbActive) %>% 
+        distinct()
+
+nodes_verbs <- nodes_and_edges %>% 
+        select(Title = Verb, VerbActive, VerbCount) %>% 
+        add_column(NodeType = "Verb", 
+                   Species = NA, 
+                   Gender = NA, 
+                   Race = NA, 
+                   Age = NA, 
+                   Sexuality = NA) %>%   
+        select(Title, NodeType, Species, Gender, 
+               Race, Age, Sexuality, VerbCount, VerbActive) %>% 
+        distinct()
+
+nodes <- rbind(nodes_chars, nodes_verbs)
+
+edges <- nodes_and_edges %>% 
+        select(From = Character, To = Verb) %>% 
+        add_column(EdgeType = "Character_action")
+
+# set the seed, create a graph object from the dataframe object
+set.seed(123)
+
+net <- graph_from_data_frame(d=edges, vertices=nodes, directed=T) 
+
+```
+
+This is a bipartite network - there are two types of nodes, Characters and Verbs. We'll add a column called "type" that will be TRUE for one kind of node and FALSE for the other kind.
+
+```{r plot_network}
+
+## Add the "type" attribute to the network.
+V(net)$type <- bipartite_mapping(net)$type  
+
+V(net)$color <- ifelse(V(net)$type, "lightblue", "salmon")
+E(net)$color <- "lightgray"
+
+# Compute node degrees (#links) and use that to set node size:
+deg <- degree(net, mode="in")
+V(net)$size <- deg*0.3       # the number you multiply deg by changes size of nodes
+
+# Verbs outlets will have name labels, characters will not:
+# This takes the node Titles from the nodes dataframe, but only for those
+# where the NodeType is "Verb". So now only the Verbs have labels.
+V(net)$label <- ""
+V(net)$label[V(net)$NodeType == "Verb"] <- nodes$Title[V(net)$NodeType == "Verb"]
+
+plot(net, 
+     layout=layout_with_fr(net),
+     edge.arrow.size = 0.2, 
+     vertex.label.cex=0.4,
+     vertex.label.color="black",
+     vertex.label.family="Helvetica",
+     label.dist = 1,
+     vertex.frame.color="cornflowerblue",
+     vertex.size=(V(net)$size))
+
+```
+
+# Using ggraph instead of iGraph to visualise the network
+
+I find `ggraph` easier to use than iGraph. I like that you don't hardcode sizes and colours into the network itself, as you do in iGraph. That easily gets confusing when you re-plot and don't realise that you're using old values.
+
+```{r plotting_in_ggraph}
+library(ggraph)
+
+ggraph(net, layout="stress") +
+        geom_edge_fan(color="gray50", width=0.2, alpha=0.5) +
+        geom_node_point(color="orange", size=degree(net)*0.2) +
+        ggtitle("Bipartite Character/Verb network - only verbs are labelled") +
+        geom_node_text(aes(label = label), color="black", repel = T) +
+        theme_void()
+
+```
+
+Tried to size the labels by degree as well by adding `size=V(net)$size`to the `geom_node_text()` layer but then it *only* shows Killing and a couple other verbs - no idea why it hides the other verbs.
+
+# Convert to a one-mode network
+
+For community clustering and betweenness to make much sense, we need to convert the network into a one-mode network. I want to see which verbs are used by the same characters, so I want to keep the Verbs and make an edge between two verbs if they are used by the same chaacter.
+
+I'm following Phil Murphy and Brendan Knapp's instructions from [Bipartite/Two-Mode Networks in igraph](https://rpubs.com/pjmurphy/317838).
+
+There are a number of different ways of calculating this. I'm choosing the way Murphy and Knapp call "the simplest, and most common" approach, "overlap count through manual projection", which is "a count of the number of nodes in the second mode that each pair in the first mode have in common, and visa versa".
+
+First we convert the network `net`to a matrix where the Verbs are columns and the Characters are rows. The "type" is set to TRUE for Verbs and FALSE for Verbs so assume switching those values would switch the columns/rows in the incidence matrix.
+
+```{r turn_net_into_matrix}
+
+bipartite_matrix <- as_incidence_matrix(net)
+head(bipartite_matrix)
+
+```
+
+You can transpose (swap) rows and columns using `(t(bipartite_matrix))`.
+
+You convert this bipartite matrix to a one-mode matrix by multiplying it by its transpose. This is really well explained in Murphy and Knapp.
+
+Paraphrasing them:
+
+> To produce a Y by Y (Character x Character) network, multiply the matrix we have above by its transpose (AA'). To produce an X by X network (Verb x Verb), multiply the transposed network by the original (A'A). So, let's try it.
+
+This code produces a network of how characters are related to each other - two characters have an edge between them if they use the same verb. This could be useful for seeing whether characters that "cluster together" based on their actions when interacting with machine vision also have other traits in common, such as gender, race, species or age.
+
+```{r create_char_net_one_mode}
+
+character_matrix_prod <- bipartite_matrix %*% t(bipartite_matrix)
+## crossprod() does same and scales better, but this is better to learn at first at first so you understand the method
+## 
+# diag() removes any self-loops - sets all the diagonals to 0 
+# so for you don't get watching has 86 edges to watching etc.
+diag(character_matrix_prod) <- 0
+
+```
+
+The next code does the opposite, and produces a network of how verbs are related to each other. Two verbs have an edge between them if they are used by the same character. Do certain kinds of verb cluster together?
+
+It could be interesting to see if there are differences over time or between genres (games vs movies vs novels, for instance). I will have to add dates and genres to the network for this to work.
+
+```{r create_verb_net_one_mode}
+
+verb_matrix_prod <- t(bipartite_matrix) %*% bipartite_matrix 
+diag(verb_matrix_prod) <- 0
+
+```
+
+## One-mode verb-verb network
+
+I'll start by making the one-mode verb-verb network.
+
+```{r}
+verb_net <- graph_from_adjacency_matrix(verb_matrix_prod, 
+                                        mode = "undirected", 
+                                        weighted = TRUE)
+
+verb_net
+```
+
+`verb_net` is now a network ready to be plotted. The four character code says it's Undirected, Named and Weighted. Each edge has an attribute called `weight`that is the number of times that connection occured - so how many times a character used both verbs. Watching and Communicating have the weight 11, so a character both watched and communicated when interacting with machine vision 11 times.
+
+TODO: If doing this with Technologies and Verbs it will be important to somehow include information about the situation somehow when weighting.
+
+This is a much smaller network and easier to visualise. I'm going to try doing this in ggraph which is closer to ggplot.
+
+## Clustering the Verbs - two methods
+
+### Using `cluster_louvain`
+
+THis method is from David Schoch's Network Visualizations in R using ggraph and graphlayouts\](<http://mr.schochastics.net/netVizR.html>). For my network, this is the key line:
+
+`V(verb_net)$cluster <- as.character(membership(cluster_louvain(verb_net)))`
+
+So Schach adds the cluster ID (1, 2 or 3 in my case) to a variable in `verb_net.
+
+```{r cluster_method1_verb_net}
+
+# define a custom color palette
+got_palette <- c("#1A5878", "#C44237", "#AD8941")
+
+# compute a clustering for node colors
+V(verb_net)$cluster <- as.character(membership(cluster_louvain(verb_net)))
+
+# compute degree as node size
+V(verb_net)$size <- degree(verb_net)
+
+ggraph(verb_net, layout="fr") +
+        #geom_edge_fan(color="gray50", width=0.2, alpha=0.5) +
+        geom_edge_link0(aes(edge_width = weight), edge_colour = "grey80", alpha=0.3)+
+        geom_node_point(aes(color = cluster, size = size)) +
+        geom_node_text(aes(label = name), size=4, color="black", repel=F, check_overlap = T) +
+        scale_fill_manual(values = got_palette) +
+        scale_size(range = c(0.2,10)) +
+        ggtitle("Verb network") +
+        theme_void()
+
+
+```
+### Using `cluster_optimal()`
+
+Ognayanova has another way of showing communities using the function `cluster_optimal`, and also plots them with background colours. Instead of putting the cluster IDs in a variable on the network, Ognayanova puts them in a separate vector that she then plots **with** the network. 
+
+```{r clusters_method2_with_background_colours}
+# From Sunbelt2019.
+# We can also try to make the network map more useful by
+# showing the communities within it.
+
+# Community detection (by optimizing modularity over partitions):
+clp <- cluster_optimal(verb_net)
+l <- layout_with_graphopt(verb_net, charge=0.002)
+
+# Community detection returns an object of class "communities" 
+# which igraph knows how to plot: 
+
+plot(clp, verb_net,
+     layout=l,
+     label.dist = 1,
+     edge.color = "grey90",
+     edge.arrow.size = 0.2,
+     vertex.frame.color=F,
+     vertex.label.cex=0.8,
+     vertex.label.color="black",
+     vertex.label.family="Helvetica")
+ 
+```
+
+
+### The three clusters based on `cluster_optimal`:
+
+#### Seeing (or should we call it Analysing? Using as a tool?)
+
+Communicating, Controlling, Helping, Learning, Scanning, Searching, Seeing, Surveilling, Watching.
+
+These are non-emotional, functional ways of using the technology as a tool.
+
+#### Evading
+
+Analysed, Classified, Hiding, Identified, Scanned, Scared, Surveilled.
+
+#### Attacking
+
+Watched, Fighting, Hacking, Informed, Investigating, Killing, Observing.
+
+Most of these express action, taking control. Interesting that Watched isn't in the other cluster. Perhaps these express a different kind of character as much as a different kind of situation?
+
+### Possible problems, next steps
+I should compare the clustering results - clearly results will depend on which algorithm is used. There is at least one more cluster algorithm, `edge.betweenness.community(verb_net)`, though it doesn't work. The warnings the code produces are interesting though - it says it may not make sense because ´Modularity calculation with weighted edge betweenness community detection might not make sense -- modularity treats edge weights as similarities while edge betwenness treats them as distances`.
+
+I found this quote from a paper:
+
+> The identification of important nodes is typically accomplished through centrality measures. Many centrality measures has been proposed, each probing complementary aspects of node-to-node relationships13. For instance, Closeness centrality14,15 highlights nodes that are "near" to all other nodes in the network in terms of average distance (calculated as number of edges) from all other nodes. Whenever the effects of a node on another weaken along the path16, then central nodes are those having the largest capacity to influence the others. Consider however highly modular networks, in which tightly knit communities of nodes are loosely connected to one another; then, one may be interested in identifying nodes that act as bridges connecting the different communities, allowing for the spread of perturbations across the entire network. Stress centrality, and Betweenness centrality15 serve this purpose. The choice of a centrality measure thus depends on the research question at hand, and on the characteristics of the data being analyzed.
+
+This network isn't a "natural" network where each node has a direct relationship to another node, like in the social network in Les Miserables or the ecological network in the paper quoted above. It's more like a citation network (are there established terms for this difference?). An edge means that a character used both words - so information or disease certainly can't flow along a "shortest path" between two nodes. What exactly DOES a shortest path mean in a network like this? Some kind of similarity - but how to define that? Does betweenness still have analytical value in this kind of network?
+
+
+### Next step - investigate correlation traits/action
+An interesting next step would be to investigate the traits of characters using each of these sets of verbs. That might be best done in a set of barcharts rather than using network visualistion, or perhaps using the [correlation plot Kabakoff mentions in 8.1](https://rkabacoff.github.io/datavis/Models.html#Corrplot)
+
+I think the `cluster_optimal` clusters give more interesting results than the louvain version. Let's try to use `cluster_optimal` with the ggraph version of the network.
+
+```{r}
+# compute a clustering for node colors
+V(verb_net)$cluster <- as.character(membership(cluster_optimal(verb_net)))
+
+ggraph(verb_net, layout="fr") +
+        #geom_edge_fan(color="gray50", width=0.2, alpha=0.5) +
+        geom_edge_link0(aes(edge_width = weight), edge_colour = "grey80", alpha=0.3)+
+        geom_node_point(aes(color = cluster, size = size)) +
+        geom_node_text(aes(label = name), size=4, color="black", repel=F, check_overlap = T) +
+        scale_fill_manual(values = got_palette) +
+        scale_size(range = c(0.2,10)) +
+        ggtitle("Three main kinds of action: analysing/seeing, evading and attacking (?)") +
+        theme_void()
+```
+
+
+### Active vs passive verbs
+
+```{r active_or_passive}
+
+# Make a new attribute to the nodes - active or passive. Active verbs will be TRUE. 
+V(verb_net)$active <- str_detect(V(verb_net)$name, "ing")
+
+ggraph(verb_net, layout="fr") +
+        #geom_edge_fan(color="gray50", width=0.2, alpha=0.5) +
+        geom_edge_link0(aes(edge_width = weight), edge_colour = "grey80", alpha=0.3)+
+        geom_node_point(aes(color = active, size = size)) +
+        geom_node_text(aes(label = name), size=4, color="black", repel=F, check_overlap = T) +
+        scale_fill_manual(values = got_palette) +
+        scale_size(range = c(0.5,15)) +
+        ggtitle("What fictional characters do with machine vision technologies?") +
+        theme_void()
+
+```
+
+This graph is drawn slightly differently every time. I'm not sure how to save a layout as shown in Sunbelt 2019 on page 23 (`l <- layout_with_fr(net)` and then setting ´layout = l´ later - can you do that in ggraph?)
+
+Here's a layout that emphasises centrality - and hey presto, that sizes labels!! THis code is from [David Schoch](http://mr.schochastics.net/netVizR.html) again.
+
+```{r layout_centrality}
+ggraph(verb_net,layout = "centrality",cent = graph.strength(verb_net))+
+  geom_edge_link0(aes(edge_width = weight),edge_colour = "grey90")+
+  geom_node_point(aes(fill=cluster,size=size),shape = 21, alpha = 0.5)+
+  geom_node_text(aes(size = size*0.3,label = name),family = "Helvetica", repel = T, check_overlap = T)+
+        ggtitle("Centrality layout somehow - still coloured by cluster", 
+                subtitle = "subtitle") +
+  scale_edge_width_continuous(range = c(0.2,0.9))+
+  scale_size_continuous(range = c(1,8))+
+  scale_fill_manual(values = got_palette)+
+  theme_graph() +
+  theme(legend.position = "bottom")
+```
+
+Does this mean that Scanned is very central? Who knows. It's time to run the numbers.
+
+## Degree
+
+### Degree: Watching, Scanned, Communnicating have highest degree
+
+```{r degree_highest}
+
+verb_net_degree <- degree(verb_net)
+verb_net_degree_sorted <- sort(verb_net_degree, decreasing = TRUE)
+head(verb_net_degree_sorted)
+
+```
+
+The most actions are all rather bland and functional.
+
+### Compare to the most frequent actions in original dataset
+
+The most frequent actions in the dataset correspond (almost exactly? exactly? to the degree.
+
+```{r verb_frequency}
+
+Verb_freq <- Character_verbs %>%
+  select(Verb) %>% 
+  add_count(Verb, name = "VerbCount") %>% 
+  arrange(desc(VerbCount)) %>% 
+  distinct()
+
+Verb_freq
+  
+# Make table with Verb, Freq, Degree, Betweenness, Eigenvector. 
+
+
+```
+
+### Histogram of degrees
+
+```{r degree-histogram}
+
+hist(verb_net_degree[verb_net_degree>2],
+     main = "Histogram of degree distribution in the verb-verb network",
+     xlab = "Degree",
+     ylab = "Frequency")
+```
+
+### Betweenness: Killing, Hiding and Fighting have highest betweenness
+
+```{r betweenness}
+verb_net_btwn <- betweenness(verb_net)
+head(sort(verb_net_btwn, decreasing = T))
+```
+
+Betweenness is low in comparison to the Les Miserables network, where Valjean's betweenness is 1624 and Bishop Myriel, who has the second highest betweenness, is 504. The low betweenenss figures, and the fact that there isn't much difference between the nodes, indicates that this is a relatively balanced network. There aren't clear hubs.
+
+It fascinating that the emotionally loaded actions have high betweenness! Although they don't completely match the Attacking category (Watched, Fighting, Hacking, Informed, Investigating, Killing, Observing) as I first thought.
+
+What exactly does that mean?
+
+### Five highest Eigenvector centrality
+
+```{r eigencentrality}
+eigenCent <- evcent(verb_net)$vector
+head(sort(eigenCent, decreasing = TRUE))
+```
+
+Eigenvector is similar to degree - it finds all the boring, unemotional, function uses of machine vision. I'm not sure I fully understand what exactly this is measuring - need to explore further if I use this.
+
+### Correlation between betweenness centrality and eigenvector centrality
+
+```{r correlation_betweenness_eigenvector}
+ cor(verb_net_btwn,eigenCent)
+```
+
+### Colour "the nodes red "gatekeeper vertices" red
+
+Nodes with high betweenness but low eigencentrality are supposed to be "gatekeeper vertices" between disparate communities. We can colour them red like this:
+
+```{r colour_nodes_red_if_high_eigenvector}
+
+# now set only those with high betweenness yet low eigencentrality to red;
+# these are the "gatekeeper vertices" between disparate communities
+colorVals <- rep("white", length(verb_net_btwn))
+colorVals[which(eigenCent < 0.4 & verb_net_btwn > 16)] <- "red"
+
+V(verb_net)$color <- colorVals
+plot(verb_net,
+     layout=l,
+     label.dist = 1,
+     edge.color = "grey90",
+     edge.arrow.size = 0.2,
+     vertex.frame.color=F,
+     vertex.label.cex=0.8,
+     vertex.label.color="black",
+     vertex.label.family="Helvetica")
+```
+
+I'm not sure how this matches the other clustering we've done. If we use the ggraph for a fr layout, but put `fill = color`in `geom_node_point` I would expect the colouring of nodes to be as above in the igraph `plot()` - but weirdly the colours are inverted.
+
+I really don't see how these are "gatekeeper vertices". Perhaps not in this particular network?
+
+```{r gatekeeper_vertices_with_ggplot}
+ggraph(verb_net,layout = l) +
+  geom_edge_link0(aes(edge_width = weight),edge_colour = "grey90")+
+  geom_node_point(aes(fill=color,size=size),shape = 21, alpha = 0.5)+
+  geom_node_text(aes(size = size*0.3,label = name),family = "Helvetica", repel = T, check_overlap = T)+
+        ggtitle("Gatekeeper nodes in blueish gray", 
+                subtitle = "subtitle") +
+  scale_edge_width_continuous(range = c(0.2,0.9))+
+  scale_size_continuous(range = c(1,8))+
+  scale_fill_manual(values = got_palette)+
+  theme_graph() +
+  theme(legend.position = "bottom")
+```
+
+## Subsetting the network
+
+Tharsen goes back to the dataframe `lesmis` that the `lesmis_graph` was created from, and first subsets all rows that include the names of the two characters he is interested in (Fantine and Marius), then creates a character vector of all the names on those rows that he calls `lesmis_subset_nodes` - so the vector lists Fantine and Marius and every character they have a relationship to.
+
+This is the line that actually creates the subset (subgraph?):
+
+`lesmis_subgraph <- induced.subgraph(lesmis_graph, lesmis_subset_nodes)`
+
+My verb-verb network wasn't created from a dataframe, but I can convert it into a [long data frame](https://igraph.org/r/doc/as_long_data_frame.html), which "contains one row for each edge, and all metadata about that edge and its incident vertices are included in that row".
+
+```{r subsetting_convert_graph_to_df}
+
+#convert verb_net to a dataframe
+verb_df <- as_long_data_frame(verb_net)
+
+# Make targetverbs the three with highest betweenness.
+# Could have written a script for that but for now I'll just write it in...
+# targetverbs <- c("Killed", "Hiding", "Fighting")
+# --> this only removes 3 nodes (check which ones?) so not very useful
+
+# Other interesting possibile targetverbs?
+# targetverbs <- c("Killing", "Killed") 
+targetverbs <- "Hacking" 
+
+# Find the subset of verb_df where one of the targetverbs is either in the from
+# or to column (verb_df is basically an edge table)
+verb_subset_rownumbers <- which(
+        (verb_df$from_name %in% targetverbs) | (verb_df$to_name %in% targetverbs)
+        )
+
+# Get just the relevant rownumbers so you find the list of values (verbs in our
+# case) that you wnat to include in the subgraph:
+verb_subset_nodes <- verb_df$from_name[verb_subset_rownumbers]
+
+#To create a larger subgraph for all connections in both directions, 
+#use this instead - although since our network is undirected I'm not sure
+#this would be different? (Copied and pasted from Jeffrey Tharsen's lesmis script)
+#verb_subset_nodes <- c(verb_df$from_name[verb_subset_rownumbers], #lesmis$to_name[verb_subset_rownumbers])
+
+verb_subgraph <- induced.subgraph(verb_net, verb_subset_nodes)
+
+plot(verb_subgraph,
+     layout=l,
+     label.dist = 1,
+     edge.color = "grey90",
+     edge.arrow.size = 0.2,
+     vertex.frame.color=F,
+     vertex.label.cex=0.8,
+     vertex.label.color="Black",
+     vertex.label.family="Helvetica",
+     main=paste("All characters connected to", targetverbs, sep=" ") )
+```
+
+Hm, duplicate nodes.
+
+Also, looks like everything is connected to almost everything else in my network... For a subset like this to be useful, I'd have to do things by edge weight or something - remove every edge that has less than such and such a weight? Or maybe subsetting is simply more useful on bigger or more sparsely linked networks.
+
+### Clusters and subsets
+
+```{r}
+plot(verb_subgraph,
+     layout=l,
+     label.dist = 1,
+     edge.color = "grey90",
+     edge.arrow.size = 0.2,
+     vertex.frame.color=F,
+     vertex.label.cex=0.8,
+     vertex.label.color="black",
+     vertex.label.family="Helvetica")
+```
+
+## Are high betweenness actions all in the same cluster?
+
+Now we have a dataframe of the graph it's easy to make a list of which verbs are in which cluster.
+
+```{r make_df_with_cols_for_cluster_btwn_eigen}
+
+# Add column for betweenness
+V(verb_net)$Between <- betweenness(verb_net)
+
+# Add column for eigenvector
+V(verb_net)$EigenCent <- evcent(verb_net)$vector
+
+# Convert verb_net to a dataframe
+verb_df <- as_long_data_frame(verb_net)
+
+# Select relevant columns in the dataframe we made of verb_net, sort them.
+verb_cluster_df <- verb_df %>% 
+  select("Verb" = from_name, 
+         "Cluster" = from_cluster, 
+         "Between" = from_Between, 
+         "EigenCent" = from_EigenCent, 
+         "Active" = from_active) %>% 
+  distinct() %>% 
+  arrange(desc(Cluster, Between))
+
+# Merge with the verb frequency df we defined above
+verb_stats_df <- merge(verb_cluster_df, Verb_freq)
+
+# add column with betweenness for each verb
+V(verb_net)$Between <- betweenness(verb_net)
+
+# plot it
+verb_stats_df %>% 
+  select(Verb, Cluster, VerbCount, Between, EigenCent, Active) %>% 
+  arrange(desc(Between)) %>% 
+  ggplot() +
+  geom_point(aes(VerbCount, Between, colour = Cluster)) +
+  geom_smooth(aes(VerbCount, Between)) +
+  facet_wrap(~Active) 
+```
+
+Does this show that verbs that are used **less** frequently (lower VerbCount) actually have **higher** betweenness? The curve is fairly similar for passive verbs (in the FALSE graph) and the active verbs (in the TRUE graph).
+
+# Notes and TODOs
+
+## Findings and notes
+
+-   Some interesting findings from the three clusters of nodes - evading, analysing and attacking as main categories. Seems very clear.
+
+## TODO
+
+-   Get a new export of situations.csv and include genres - run these for each genre (art, narrative, games) to compare.
+-   Run the same kind of analysis as I did for verb_net on the one-mode character-character network.
+-   Figure out how to add character attributes to the network - especially genre. Does it make sense to add these to the edges? Is that even possible? How to do faceting (`facet_nodes()` etc)
+-   Add the community ID data to Character_verbs and make some barcharts to see whether the three action groups correlate with particular Character traits (species, gender, race etc)
