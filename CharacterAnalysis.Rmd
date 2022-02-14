@@ -868,7 +868,7 @@ different genders in our dataset.
 
 ## Active verbs
 
-```{r}
+```{r verb_freq_by_gender}
 
 # Using the Tidyverse library the following code takes Character_verbs and then 
 # does the following: 
