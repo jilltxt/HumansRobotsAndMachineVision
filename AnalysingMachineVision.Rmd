@@ -22,7 +22,7 @@ zotero: "Machine Vision in Everyday Life"
 ```{r, setup, message=FALSE}
 
 library(tidyverse)
-library(RColorBrewer)
+# library(RColorBrewer)
 
 #Import characters file (Characters.csv)
 #define column types and factors
@@ -62,7 +62,7 @@ AllCharacters <- read_csv(
 Characters <- AllCharacters %>% 
         filter(IsGroup == FALSE & IsCustomizable == FALSE) %>% 
         na_if("Unknown") %>% 
-        mutate(HumanOrMachine = recode(Species, 
+        mutate(Species = recode(Species, 
                                "Machine" = "Robot",
                                "Cyborg" = "Robot",
                                "Human" = "Human",
@@ -155,7 +155,6 @@ kable(TechRef_percentages, caption = "Percentage of total works that are tagged 
 ### Tech being **used** in the works
 ```{r, TechUsed_percentages }
 
-library(knitr)
 
 TechUsed_percentages <- CreativeWorksFull %>% 
         select(WorkID, TechUsed) %>% 
@@ -167,6 +166,8 @@ TechUsed_percentages <- CreativeWorksFull %>%
                 # TechUsedCount/500 because there are 500 creative works in total
                 # so TechUsedCount/500*100 gives the percentage of works that use this tech
 
+
+# the knitr library is for generating a table
 library(knitr)
 kable(TechUsed_percentages, caption = "Percentage of total works that are tagged as **using** each technology.")
 ```
@@ -531,7 +532,7 @@ Character_verbs %>%
         select(Character, Genre, Gender, Sexuality)
 ```
 
-
+## Overview of race/ethnicity
 
 ```{r, character_race}
 Characters %>% 
@@ -540,6 +541,36 @@ Characters %>%
         facet_grid(. ~ HumanOrMachine)
 
 ```
+
+## Simplified version of Race/Ethnicity
+
+We have messy categories for race, and fairly small groups other than for White. We'll simplify in the following.
+
+(Note: here is an example of a content analysis paper that also chose to reduce the categories to "Caucasian" and "Ethnic minority" 10.1080/08824096.2019.1630605. In our case this is more problematic since the Asian characters in particular are often in Asian media so not minorities.)
+
+```{r Character_race_simplified1}
+
+# Add a new column with "simplied" race. 
+Character_verbs <- Character_verbs %>% 
+        mutate(RaceSimplified = recode(RaceOrEthnicity,
+                             "Asian" = "PoC", 
+                             "Black" = "PoC", 
+                             "White" = "White", 
+                             "Person of Colour" = "PoC",
+                             "Indigenous" = "PoC",
+                             "Immigrant" = "PoC",
+                             "Complex"  = "PoC"))
+
+Character_verbs %>% 
+        ggplot() +
+        geom_bar(aes(y = RaceSimplified, fill = Gender)) +
+        facet_grid(. ~ HumanOrMachine)
+
+
+```
+
+
+## More on genders and robots/humans
 
 There are considerably more male than female humans. Interestingly the
 genders are more even among the robots. You can also see that there
@@ -742,7 +773,7 @@ Character_verbs %>%
   add_count(Verb, name = "VerbCount") %>% 
   arrange(desc(VerbCount)) %>%
   filter(VerbCount>20) %>% 
-  filter(Gender != "Unknown") %>% 
+  filter(!is.na(gender)) %>% 
   filter(str_detect(Verb, "ing")) %>% 
   ggplot(aes(y = Verb, x = Gender)) +
   geom_count(aes(colour = Gender), alpha = 0.8) +
