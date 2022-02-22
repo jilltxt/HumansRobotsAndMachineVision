@@ -1,0 +1,235 @@
+---
+title: "Can we predict whether a verb is active or passive based on the traits of characters that use it?"
+subtitle: "Using kNN to predict active or passive stance based on character traits"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    code_folding: hide
+---
+
+This notebook explores using the "lazy classification" method of kNN to predict whether a character will have an active or passive stance to machine vision technologies based on their traits (that is, their species, race, age, gender and sexuality).
+
+kNN stands for *k* nearest neighbours, where *k* is the number of nearest neighbours the algorithmic looks at. It is "lazy prediction" because it doesn't build a model and has to be run again each time. That also means it doesn't have any explanatory power, but it can find and use patterns. 
+
+I used Brett Lantz's book *Machine Learning with R: Expert techniques for predictive modelin*g (3rd ed, 2019), the Datacamp class on [Supervised Learning in R] (https://app.datacamp.com/learn/courses/supervised-learning-in-r-classification) and hints from Jeffrey Tharson's [DIGS30004 class on R](https://canvas.uchicago.edu/courses/39839).
+
+```{r setup}
+suppressMessages(library(tidyverse))
+
+#Import characters file (../data/Characters.csv)
+#define column types and factors
+AllCharacters <- read_csv(
+  "../data/characters.csv",
+  col_types = cols(
+    CharacterID = col_integer(),
+    Character = col_character(),
+    Species = col_factor(levels = c(
+      "Animal", "Cyborg", "Fictional", 
+      "Human", "Machine", "Unknown")),
+    Gender = col_factor(levels = c(
+      "Female","Male","Non-binary or Other", "Trans Woman",
+      "Unknown")),
+    RaceOrEthnicity = col_factor(levels = c(
+      "Asian", "Black", "Person of Colour", "White", "Immigrant", "Indigenous",
+      "Complex", "Unknown")),
+    Age = col_factor(levels = c(
+      "Child", "Young Adult", "Adult", "Elderly", 
+      "Unknown")),
+    Sexuality = col_factor(levels = c(
+      "Homosexual", "Heterosexual", "Bi-sexual", "Other",
+      "Unknown")),
+    IsGroup = col_logical(),
+    IsCustomizable = col_logical()
+  )
+)
+
+# Define Characters as the subset of AllCharacters that are not group characters or 
+# customizable characters.
+# 
+# Convert "Unknown" values to NA. 
+# 
+# Select relevant columns.
+
+Characters <- AllCharacters %>% 
+        filter(IsCustomizable == FALSE) %>% 
+        na_if("Unknown") %>% 
+        select(Character, Species, Gender, Sexuality, 
+               RaceOrEthnicity, Age) %>% 
+        mutate(RaceOrEthnicity = recode(RaceOrEthnicity,  
+                             "Asian" = "Asian", 
+                             "Black" = "PoC", 
+                             "White" = "White", 
+                             "Person of Colour" = "PoC",
+                             "Indigenous" = "PoC",
+                             "Immigrant" = "PoC",
+                             "Complex"  = "PoC")) %>% 
+        mutate(Species = recode(Species,
+                                "Human" = "Human",
+                                "Machine" = "Robot",
+                                "Cyborg" = "Robot",
+                                "Fictional" = "Fictional",
+                                "Animal" = "Animal"))
+
+# To figure out what these characters actually do with the machine vision we need 
+# to load data about the Situations in which they interact with machine vision
+# technologies in the creative works in our sample.
+# 
+# The following code imports data about the Situations from situations.csv, 
+# sets the column types, and also tells R to skip the columns we’re not going 
+# to need for this analysis.
+
+# NB characterID isn't in this export, fix later (add column back in)
+# Also remove GenreID later
+
+Situations <- read_csv(
+  "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/situations.csv",
+  col_types = cols(
+    SituationID = col_integer(),
+    SituationTitle = col_skip(),
+    Genre = col_character(),
+    Character = col_character(),
+    Entity = col_character(),
+    Technology = col_character(),
+    Verb = col_character()
+  )
+)
+
+        
+
+# Add column stating whether verb is active or passive.
+# Call this column "target" since this is the target or outcome we want to build
+# a model to predict from the other variables. This variable is TRUE for active 
+# verbs (ending in -ing) and FALSE for passive verbs (ending in -ed)
+ 
+Situations <- Situations %>% 
+        mutate(target = (str_detect(Verb, "ing"))) %>% 
+        filter(!is.na(Verb)) 
+
+# Filter just the three main genres - since narratives have subgenres (Movie, 
+# Novel, etc) there would be a lot of duplicate info if we kept them.
+
+# The fifth row has an NA in the Character and CharacterID columns - that 
+# means that there is no value there. The verb in the verb column belongs 
+# to an Entity or a Technology, not to a Character. We need to delete all the 
+# rows with missing data.
+
+Character_situations <- Situations %>% 
+        select(SituationID, Genre, Character, Verb, target) %>% 
+        filter(!is.na(Character))
+        
+
+# Now we combine the two dataframes using the CharacterID (for now: Character) 
+# column as the shared information.
+Character_verbs <- merge(
+        x = Character_situations, y = Characters, 
+        by = "Character") %>% 
+                        # replace w/CharID later
+        select(Character, SituationID, Genre, Verb, Species, Gender, 
+                RaceOrEthnicity, Age, Sexuality, target)
+
+
+#Make a contingency table for the characterverbs.
+Character_verbs_contingency <- Character_verbs %>% 
+        select(Verb, Gender, Species, RaceOrEthnicity, Age, Sexuality) %>% 
+        pivot_longer(cols= -Verb,
+                     names_to = "variable", 
+                     values_to = "value") %>% 
+        drop_na() %>% 
+        group_by(Verb, value) %>%
+        summarise(n=n()) %>% 
+        pivot_wider(names_from = "value", values_from = "n") %>% 
+        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+
+head(Character_verbs_contingency)
+
+```
+I've imported `situations.csv` and ´characters.csv`, merged them and converted to a contingency table. Each character trait has become a column and the numbers in each column count occurances, that is, they show how many times a verb is used by a character with that particular trait. 
+
+I add a column called "target" (since this is the feature I want my predictive algorithms to target or to see as the outcome) which is set to TRUE if a verb ends in -ing and FALSE if not (`mutate(target = str_detect(Verb, "ing")` does this).
+
+The table above shows the distribution of passive and active verbs in the full dataset. 278 are passive, 469 active, for a total of 747 verbs. Note that this is the total verbs and says nothing about how often they are used. It may be a better strategy to do the machine learning on each occurance of the verb (each row in `situations.csv`) rather than in the way I'm doing here. 
+
+```{r}
+table(Character_verbs_contingency$target)
+```
+
+
+# Split data: 70% training subset and 30% for testing
+
+There are 747 verbs in `Character_verbs_contingency`, the contingency table where each verb is an occurance and the columns have a count of how many characters with each trait use that verb. Split this into two subsets so we can train the kNN-algorithm on the `train` subset (70% of the data) and then test its accuracy on the `test` subset (30% of the data).  
+
+```{r}
+# Set up random_70%_of_dataset}
+
+library(class)
+
+set.seed(2022)
+split <- sample(1:nrow(Character_verbs_contingency),
+                as.integer(0.7*nrow(Character_verbs_contingency)), F)
+train <- Character_verbs_contingency[split,]
+test <- Character_verbs_contingency[-split,]
+
+# Put the target TRUE or FALSE in a vector called verb_train
+target_train <- train[2]
+
+# Same for the test group
+# Put the romnames in a vector called verb_train
+target_test <- test[2]
+
+
+```
+
+Then run the kNN algorithm. I'm running the algorithm four times with different *k* (that is, different "numbers of nearest neighbours") to see how this affects the results.
+
+```{r}
+# Run the knn 
+target_pred_k1 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=1)
+target_pred_k5 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=5)
+target_pred_k15 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=15)
+target_pred_k20 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=20)
+```
+
+### Actual active/passive verbs in test subset
+
+```{r actual_results}
+
+actual_target <- table(test$target)
+
+```
+62% of the total verbs are active in the test subset. 64% are active in the train subset.  
+
+```{r k1_table}
+actual_target <- test$target
+table(target_pred, actual_target)
+```
+
+
+The accuracy rate of the prediction: 
+
+```{r average_accuracy}
+
+mean(target_pred == test$target)
+
+```
+
+
+
+```{r}
+
+
+
+```
+
+# Possible solutions to the low accuracy rate
+
+Maybe the way the data is formatted isn't right for this kind of prediction. I could try: 
+
+- normalizing the numbers
+- using kNN on `Character_verbs` instead of the contingency table, but transforming so each column is a specific trait ("Female") and the values are 1 or 0 based on the traits of the character who "used" the verb that particular time in that particular situation
+
+Also, the dataset is skewed with almost 2/3 of cases being active. I could remove some of the active verbs in the training dataset to make it 50/50 so the algorithm at least doesn't simply learn to make 64% active. 
+
+Finally, maybe the character traits DON'T predict the outcome. 
