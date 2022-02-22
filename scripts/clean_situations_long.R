@@ -4,10 +4,10 @@
 
 
 
-Situations-long <- read_csv("data/situations_long.csv",
+Situations_long <- read_csv("data/situations_long.csv",
         col_types = cols(
                 SituationID = col_integer(),
-                Situation = col_skip(),
+                SituationTitle = col_skip(),
                 Genre = col_character(),
                 GenreID = col_skip(), 
                 Character = col_character(),
@@ -20,4 +20,4 @@ Situations-long <- read_csv("data/situations_long.csv",
 situations_long <- situations_long %>%  
         filter(Genre == "Art" | Genre == "Narrative" | Genre == "Game")
 
-write_csv(situations_long, "../data/situations.csv")
+write_csv(situations_long, "data/situations.csv")
