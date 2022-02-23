@@ -105,11 +105,6 @@ Verbs <- merge(Situations, Characters, by = "Character", all = TRUE)
 # Verbs <- merge(SitCounts, Verbs, by = "Verb")
 
 
-mutate(Prediction_type = case_when(target == 1 & prediction == 0 ~ "False Passive",
-                                   target == 0 & prediction == 1 ~"False Active",
-                                   target == 0 & prediction == 0 ~ "Accurate",
-                                   target == 1 & prediction == 1 ~ "Accurate",
-                                   TRUE ~ "Other")) %>% 
 
 #Make a contingency table for the Verbs
 Tech_verbs_contingency <- Verbs %>% 
@@ -207,4 +202,12 @@ temp <- Character_verbs %>%
                   ) 
         
 write_csv(temp, "data/Character_verbs_percentages.csv")
+
+
+
+mutate(Prediction_type = case_when(target == 1 & prediction == 0 ~ "False Passive",
+                                   target == 0 & prediction == 1 ~"False Active",
+                                   target == 0 & prediction == 0 ~ "Accurate",
+                                   target == 1 & prediction == 1 ~ "Accurate",
+                                   TRUE ~ "Other")) %>% 
 
