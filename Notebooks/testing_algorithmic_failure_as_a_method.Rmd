@@ -1,0 +1,382 @@
+---
+title: "Algorithmic Failure to Predict as a Humanities Methodology"
+subtitle: "Using kNN to predict active or passive stance based on character traits"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    number_sections: true
+    code_folding: hide
+---
+
+This commentary tests a proposal by Munk, Olesen and Jacomy (2022) that exploring cases where machine learning **fails** to make accurate predictions can be used as a productive method to identify ambiguous and rich cases for qualitative analysis. "If the ambition is thick description and explication rather than formalist cultural analysis and explanation," Munk et.al. argue, "then a failure to predict is more interesting than accuracy, and the lack of explainability in neural networks is less of a problem."
+
+Munk et. al. situate their proposal in the tradition of anthropology, and show how cases where their algorithm fails to predict which emoji a Facebook commenter would choose are in fact cases where the post and comment is much more subtle, ambiguous, and from an anthropological standpoint, interesting, than the cases where the algorithm picks the right algorithm.
+
+To test whether this method of algorithmic failure can be fruitful in other domains, I trained a simple machine learning algorithm on a dataset of actions taken by fictional characters interacting with machine vision technologies in 500 artworks, movies, novels and videogames. It was trained to predict whether or not an action was active or passive, using only information about the fictional characters who was interacting with machine vision: their species (human, robot or a fictional species), gender (male, female, trans or non-binary), age (child, young adult, adult or elderly), sexuality (heterosexual, homosexual, bi-sexual or other) and race or ethnicity (person of colour, Asian or white).
+
+I found that the "predicable" actions, that is, the actions where the algorithm could accurately predict was either active or passive, are also among the most common actions, and they are generally straightforward and treat machine vision technologies as simple tools. "Unpredictable" actions, that is actions that the algorithm did not correctly predict are more ambivalent and emotionally loaded. This is consistent with Munk et.al.'s theory that failed predictions can be used as a methodology for identifying rich cases for qualitative analysis. 
+ 
+# The dataset
+The actions are described by 747 verbs that are indicate either a passive (ending in -ed) or active (ending in -ing) stance to the machine vision technology. This is part of a larger project exploring cultural representations of machine vision, especially how agency is distributed between humans and non-humans, and how bias is represented.
+
+Each verb is associated with information about the traits (gender, species, race/ethnicity, age and sexuality) of the fictional characters who "do the verb" in machine vision situations. The verbs are not computationally extracted from the text of the novel but are interpretations from topic experts following an analytic model developed as part of the project. For instance, in Divya's novel *Machinehood* (2021), the protagonist Welga uses her ocular implants for navigating, assessing and protecting. The verbs in this situation are all active, and Welga has the traits Adult, Human, Heterosexual, Female, Person of Colour. A situation from the BBC series *Years and Years* shows Daniel Lyons watching the news, where a callous politican is shown agreeing that malicious deepfakes of her rivals are of course fake, but "they did really say those things". Daniel's actions in relation to the machine vision (the deepfake) are that he is watching, disgusted and disillusioned. He is represented in the show as an adult, human, homosexual, male who is white.
+
+To test the value of the algorithmic failure method for identifying interesting cases, I trained a kNN algorithm on 70% of the data (with the verb names removed) and asked it to predict whether or not a verb was active or passive, based only on the traits of the characters who used a verb. I checked its predictions against the 30% of the dataset that it had not previously seen.
+
+Preliminary data analysis had already shown that there is some correlation between character traits and the actions they take when interacting with machine vision. Actions are more likely to be described as active when characters are adults than children. Robot characters are more active than humans, and fictional or animal-like species are even less active. Sexuality doesn't seem to make a lot of difference. Some categories appear very significant only because there are so few cases -- the three trans women in the database are all strong characters who take active roles.
+
+```{r setup_and_visualise_distribution, message= FALSE}
+suppressMessages(library(tidyverse))
+suppressMessages(library(multiplex)) # think this is to make adjacency network?
+                                        # actually no that's igraph
+
+
+#Import characters file (../data/Characters.csv)
+#define column types and factors
+AllCharacters <- read_csv(
+  "https://github.com/jilltxt/HumansRobotsAndMachineVision/raw/main/data/characters.csv",
+  col_types = cols(
+    CharacterID = col_integer(),
+    Character = col_character(),
+    Species = col_factor(levels = c(
+      "Animal", "Cyborg", "Fictional", 
+      "Human", "Machine", "Unknown")),
+    Gender = col_factor(levels = c(
+      "Female","Male","Non-binary or Other", "Trans Woman",
+      "Unknown")),
+    RaceOrEthnicity = col_factor(levels = c(
+      "Asian", "Black", "Person of Colour", "White", "Immigrant", "Indigenous",
+      "Complex", "Unknown")),
+    Age = col_factor(levels = c(
+      "Child", "Young Adult", "Adult", "Elderly", 
+      "Unknown")),
+    Sexuality = col_factor(levels = c(
+      "Homosexual", "Heterosexual", "Bi-sexual", "Other",
+      "Unknown")),
+    IsGroup = col_logical(),
+    IsCustomizable = col_logical()
+  )
+)
+
+# 1. Define Characters as the subset of AllCharacters that are not group characters or 
+# customizable characters.
+# 2. Convert "Unknown" values to NA. 
+# 3. Simplify RaceorEthnicity and Species to make analysis easier.
+# 4. Select relevant columns.
+
+Characters <- AllCharacters %>% 
+        filter(IsCustomizable == FALSE) %>% 
+        na_if("Unknown") %>% 
+        select(Character, Species, Gender, Sexuality, 
+               RaceOrEthnicity, Age) %>% 
+        mutate(RaceOrEthnicity = recode(RaceOrEthnicity,  
+                             "Asian" = "Asian", 
+                             "Black" = "PoC", 
+                             "White" = "White", 
+                             "Person of Colour" = "PoC",
+                             "Indigenous" = "PoC",
+                             "Immigrant" = "PoC",
+                             "Complex"  = "PoC")) %>% 
+        mutate(Species = recode(Species,
+                                "Human" = "Human",
+                                "Machine" = "Robot",
+                                "Cyborg" = "Robot",
+                                "Fictional" = "Fictional",
+                                "Animal" = "Animal"))
+
+
+# To figure out what these characters actually do with the machine vision we need 
+# to load data about the Situations in which they interact with machine vision
+# technologies in the creative works in our sample.
+# 
+# The following code imports data about the Situations from situations.csv, 
+# sets the column types, and also tells R to skip the columns we’re not going 
+# to need for this analysis.
+
+# NB characterID isn't in this export, fix later (add column back in)
+# Also remove GenreID later
+
+Situations <- read_csv(
+  "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/situations.csv",
+  col_types = cols(
+    SituationID = col_integer(),
+    SituationTitle = col_skip(),
+    Genre = col_character(),
+    Character = col_character(),
+    Entity = col_character(),
+    Technology = col_character(),
+    Verb = col_character()
+  )
+)
+
+# Add column stating whether verb is active or passive.
+# Call this column "target" since this is the target or outcome we want to build
+# a model to predict from the other variables. This variable is TRUE for active 
+# verbs (ending in -ing) and FALSE for passive verbs (ending in -ed)
+ 
+Situations <- Situations %>% 
+        mutate(target = (str_detect(Verb, "ing"))) %>% 
+        filter(!is.na(Verb))
+
+# Filter just the three main genres - since narratives have subgenres (Movie, 
+# Novel, etc) there would be a lot of duplicate info if we kept them.
+
+# The fifth row has an NA in the Character and CharacterID columns - that 
+# means that there is no value there. The verb in the verb column belongs 
+# to an Entity or a Technology, not to a Character. We need to delete all the 
+# rows with missing data.
+
+Character_situations <- Situations %>% 
+        select(SituationID, Genre, Character, Verb, target) %>% 
+        filter(!is.na(Character))
+        
+
+# Now we combine the two dataframes using the CharacterID (for now: Character) 
+# column as the shared information.
+Character_verbs <- merge(
+        x = Character_situations, y = Characters, 
+        by = "Character") %>% 
+                        # replace w/CharID later
+        select(Character, SituationID, Genre, Verb, Species, Gender, 
+                RaceOrEthnicity, Age, Sexuality, target)
+
+
+#Make a contingency table for the characterverbs.
+Character_verbs_contingency <- Character_verbs %>% 
+        select(Verb, Gender, Species, RaceOrEthnicity, Age, Sexuality) %>% 
+        pivot_longer(cols= -Verb,
+                     names_to = "variable", 
+                     values_to = "value") %>% 
+        drop_na() %>% 
+        group_by(Verb, value) %>%
+        summarise(n=n()) %>% 
+        pivot_wider(names_from = "value", values_from = "n") %>% 
+        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+
+# Plot barcharts showing the proportion of active and passive verbs for each
+# character trait. 
+Character_verbs %>% select(Genre, Species, Gender, 
+                RaceOrEthnicity, Age, Sexuality, target) %>% 
+        pivot_longer(!target, values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=factor(value), fill=factor(target))) +
+        scale_fill_manual(values=c("steelblue", "orangered1")) +
+        geom_bar(position="fill", alpha=.7)+
+        theme( axis.line = element_line(colour = "darkblue", 
+                      size = 1, linetype = "solid")) +
+        theme_minimal() +
+        labs(fill="Verb is active:", 
+             title ="Active or passive interactions with machine vision technologies",
+             y = "", 
+             x = "") +
+        theme(axis.text.x = element_blank()) +
+        coord_flip() +
+        facet_wrap(~name, scales="free")
+```
+
+# Prediction
+
+kNN stands for *k* nearest neighbours, where *k* is the number of nearest neighbours the algorithmic looks at. It is known as "lazy prediction" because it doesn't build a model. That also means it doesn't have any explanatory power, but it can find and apply patterns in the data to make predictions.
+
+While this is not as sophisticated a method as the neural network used by Munk et.al., it is also far easier to run, making it accessible to researchers with rudimentary skills in machine learning, such as myself. This is a great advantage, because it means humanities scholars can realistically hope to do their own coding. Humanities methodolgies are founded on the ideal of interpretation of specific cases and an appreciation of detail, nuance and ambiguity that is based on deep subject knowledge. A machine learning expert would not be likely to have the in-depth knowledge of the dataset and its possible interpretations needed for productive analysis.
+
+This method is adapted from Datacamp's online tutorial "on "Supervised Learning in R: Classification", and Brett Lantz's .*Machine Learning with R* (2019).
+
+There are 747 verbs in the dataset, which is now organised as a contingency table where each verb is an occurance and the columns have a count of how many characters with each trait use that verb. I split this into two subsets so we can train the kNN-algorithm on the `train` subset (70% of the data) and then test its accuracy on the `test` subset (30% of the data). Trying various values of *k* (how many neighbours the algorithm should compare to make its predictions) showed that k=1 had the highest accuracy for this dataset, although all values for *k* overestimated the number of active verbs.
+
+```{r}
+library(class)
+
+###### NORMALISE VALUES
+
+# Define normalize function (from Lantz p. 80)
+# This normalises the values so they are all between 0 and 1.
+normalise <- function(x) {
+      return ((x - min(x)) / (max(x) - min(x)))
+}
+
+# convert the Verb column to rownames, since the normalising needs all numeric data 
+# variables - but rownames are fine and used as labels in the plot.
+Character_verbs_contingency_rownames <- Character_verbs_contingency %>% 
+        column_to_rownames(var = "Verb")
+
+# Create a new version of the contingency table with normalised values. 
+#Character_verbs_contingency_norm <- as.data.frame(lapply(Character_verbs_contingency_temp, normalise))
+
+###### SPLIT DATASET INTO TRAINING AND TEST SUBSET
+
+# Setting the seed so s the "random" rows selected
+# will be the same each time if we run the prediction multiple times. 
+set.seed(2022)
+
+# Split dataset into subsets for training and testing.
+split <- sample(1:nrow(Character_verbs_contingency),
+                as.integer(0.7*nrow(Character_verbs_contingency)), F)
+train <- Character_verbs_contingency_rownames[split,]
+test <- Character_verbs_contingency_rownames[-split,]
+
+# Storing a list of the actual verbnames in the order they are in the test data
+# so that later we can add them back in and see which verb was predicted active
+# or passive.
+verbnames <- rownames(test)
+
+# Normalise the data in train and test (do this AFTER the split so I know what 
+# the row numbers are and can add the test_verbs back in)
+train <- as.data.frame(lapply(train, normalise))
+test <- as.data.frame(lapply(test, normalise))
+
+###### RUN THE kNN ALGORITHM
+# This is the actual machine learning.
+# 
+# format:
+# prediction <- knn(training data, test data, class to try to predict, how many k's)
+# 
+# Remove first two columns (the verb and whether or not it is active) from both the 
+# training and test subsets.
+
+prediction <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=1)
+
+###### ADD PREDICTIONS TO ORIGINAL DATA
+# Now we have the predictions we can add them to the original contingency table and 
+# the more detailed data about the characters and verbs to see the differences. 
+#
+# Add the predictions to the subset of the original data we used for the testing.
+# This has 225 verbs.
+# 
+verbs <- cbind(test, prediction)
+# Add the verbnames back in.
+verbs$Verb <- verbnames
+
+# Find false passives (i.e. verbs the prediction thought were passive (ending in -ed)
+# but that were really active)
+
+Verb_pred <- verbs %>% 
+        mutate(Prediction_type = case_when(target == 1 & prediction == 0 ~ "False Passive",
+                                           target == 0 & prediction == 1 ~"False Active",
+                                            target == 0 & prediction == 0 ~ "Accurate",
+                                            target == 1 & prediction == 1 ~ "Accurate",
+                                            TRUE ~ "Other")) %>% 
+        select(Verb, prediction, Prediction_type)
+
+# Merge predictions with the full Character_verbs table.
+Verb_pred1 <- merge(Verb_pred, Character_verbs, by = "Verb")
+
+# But Character_verbs includes the training dataset, and we only have predictions
+# for the 225 verbs in the test dataset. So we'll remove the verbs that don't 
+# have predictions even though this reduces our dataset a lot. 
+
+Character_verb_predictions <- Verb_pred1 %>% 
+        drop_na(prediction) 
+
+# Now we can redo the visualisations
+
+# Plot barcharts showing the proportion of active and passive verbs for each
+# character trait. 
+# 
+Character_verb_predictions %>% 
+        filter(Prediction_type != "Accurate") %>% 
+        select(Genre, Species, Gender, 
+                RaceOrEthnicity, Age, Sexuality, Prediction_type) %>% 
+        pivot_longer(!Prediction_type, values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=factor(value), fill=factor(Prediction_type))) +
+        scale_fill_manual(values=c("steelblue", "orangered1")) +
+        geom_bar(position="fill", alpha=.7)+
+        theme(axis.line = element_line(colour = "darkblue", 
+                      size = 1, 
+                      linetype = "solid")) +
+        theme_minimal() +
+        labs(fill="Predicted action:", 
+             title ="Traits of characters whose actions were falsely predicted",
+             y = "", 
+             x = "") +
+        theme(axis.text.x = element_blank()) +
+        coord_flip() +
+        facet_wrap(~name, scales="free")
+
+# 
+# 
+```
+
+I don't really know how to interpret this! Would it be better instead to plot characteristics of the false passives in one set of graphs and the false negatives in a separate set of graphs? Maybe leave this out altogether?
+
+Also, running this suggests I'm looking for **why** it's made the false predictions, but Munk et.al argue that it's more the fact of the false identification than the reason we should be looking for.
+
+So let's instead look at the verbs that were predicted.
+
+# Unpredictable actions
+
+## Most frequently used False passives
+
+Here are the verbs that the algorithm misclassified as passive based on the character traits it analysed. That means that the traits of characters whose interactions with machine vision could be described using the following verbs were, the algorithm finds, in some way similar to the traits of characters who used passive verbs, that is, verbs ending in -ed.
+
+```{r}
+Character_verb_predictions %>%  
+        filter(Prediction_type == "False Passive") %>% 
+        group_by(Verb) %>% 
+        summarise(Count=n()) %>% 
+        arrange(desc(Count))
+```
+
+Interestingly, these actions describe interactions where agency - or power - tends not to be equally distributed. Someone who is attacking may be a powerful agressor, but may also be acting in self-defense. Using machine vision technology for deceiving might well be the work of an underdog. Escaping very clearly describes someone who is not in a position of power, but escapes.
+
+Not all the verbs fit this idea of uneven power balances. Having sex, posing and laughing don't necessarily suggest power imbalances. They also seem fairly unusual things to be doing with machine vision technologies.
+
+(Could run quantiles() on the whole dataset to see what quartile these verbs are in - I think they're in the least frequent 25%?)
+
+## Most frequently used False Actives
+
+```{r}
+Character_verb_predictions %>%  
+        filter(Prediction_type == "False Active") %>% 
+        group_by(Verb) %>% 
+        summarise(Count=n()) %>% 
+        arrange(desc(Count))
+```
+
+The false actives are more difficult to interpret in the way I interpreted the false passives above. They all seem pretty passive to me! Presumably there is something about the traits of characters who were hunted or helped or surprised or captured that is similar to traits of characters who performaed more typically active actions.
+
+## Most frequent actions that are accurately predicted
+
+Which actions are the most **predictable**?
+
+```{r}
+Character_verb_predictions %>%  
+        filter(Prediction_type == "Accurate") %>% 
+        group_by(Verb) %>% 
+        summarise(Count=n()) %>% 
+        arrange(desc(Count))
+```
+
+No surprise, these are the most "boring" but frequent verbs again. There is something **predictable** about the association between these actions and the traits of the characters that were performing them.
+
+# Explication
+
+The next step, to follow Munk et.al., would be to analyse the inaccurately predicted verbs in more detail, explicating specific cases.
+
+-   pick a few situations for attacking, hunted and communicating and analyse briefly? See if attacking and hunted really are more interesting?
+-   could also run the whole prediction based on `Character_verbs` instead of the contingency table.
+
+# Conclusion
+
+This approach upends data science's general methodology of attempting to refine algorithms to make the most accurate predictions possible and neatly sidesteps the common objection to using machine learning in the humanities.
+
+... something about the value of replication even in the humanities :) 
+... something about how this supports their findings and suggests that the method is worth further exploration - and that it can be applied in cultural studies (or whatever we're doing) in addition to anthropology - so it's a more general methodology that allows us to combine machine learning with qualitative and interpretative methods... 
+
+Notes: 
+- Drucker's "troubling details" (2014, p. 92) as key for the humanities, yet something that are typically excluded by data visualisations. 
+- overfitting - when a machine learning algorithm considers details *too* much and can't generalise. In the humanities that might sometimes be precisely what we want. 
+
+# References
+
+Drucker, Johanna. Graphesis: Visual Forms of Knowledge Production. Cambridge, Massachusetts: Harvard University Press, 2014.
+
+
+Lantz, Brett. Machine Learning with R: Expert Techniques for Predictive Modeling. 3rd ed. Birmingham: Packt, 2019.
+
+Munk, A. K., Olesen, A. G., & Jacomy, M. (2022). The Thick Machine: Anthropological AI between explanation and explication. *Big Data & Society*, *9*(1). <https://doi.org/10.1177/20539517211069891>
+
+
