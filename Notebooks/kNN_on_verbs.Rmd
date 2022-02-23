@@ -9,11 +9,21 @@ output:
     code_folding: hide
 ---
 
+# Summary
+
 This notebook explores using the "lazy classification" method of kNN to predict whether a character will have an active or passive stance to machine vision technologies based on their traits (that is, their species, race, age, gender and sexuality).
+
+The results are not particularly useful. It's possible I made mistakes in the method, but it's at least as likely that the method simply isn't right for this data. Normalising the values didn't help. Perhaps removing the skew in the dataset would help - 62% of actions are active and the algorithm predicted more and more active verbs the higher *k* I used. Perhaps looking at cases where the algorithm was wrong and examining the situation would be interesting, as in munk, Olesen & Jacomy 2022. 
+
+# Background
 
 kNN stands for *k* nearest neighbours, where *k* is the number of nearest neighbours the algorithmic looks at. It is "lazy prediction" because it doesn't build a model and has to be run again each time. That also means it doesn't have any explanatory power, but it can find and use patterns. 
 
 I used Brett Lantz's book *Machine Learning with R: Expert techniques for predictive modelin*g (3rd ed, 2019), the Datacamp class on [Supervised Learning in R] (https://app.datacamp.com/learn/courses/supervised-learning-in-r-classification) and hints from Jeffrey Tharson's [DIGS30004 class on R](https://canvas.uchicago.edu/courses/39839).
+
+# Setup
+
+To setup, I merge `characters.csv` and `situations.csv` to create `Character_verbs` where each row is an observation of a specific character associated with a specific action in a specific machine vision situation, and where each observation includes the character's traits (race, sexuality etc). Then I transform `Character_verbs`into a contingency table where each row is one of the 747 verbs or actions associated with characters in the dataset, and the variables (columns) are variables like "Human", "Robot", etc. The values are the number of times a character with that particular trait (e.g. "Human") was associated with the action.
 
 ```{r setup}
 suppressMessages(library(tidyverse))
@@ -83,8 +93,11 @@ Characters <- AllCharacters %>%
 # NB characterID isn't in this export, fix later (add column back in)
 # Also remove GenreID later
 
+# Used to work but github down??
+#   "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/situations.csv",
+
 Situations <- read_csv(
-  "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/situations.csv",
+  "../data/situations.csv",
   col_types = cols(
     SituationID = col_integer(),
     SituationTitle = col_skip(),
@@ -143,25 +156,36 @@ Character_verbs_contingency <- Character_verbs %>%
         mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
         mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
 
-head(Character_verbs_contingency)
+
 
 ```
-I've imported `situations.csv` and ´characters.csv`, merged them and converted to a contingency table. Each character trait has become a column and the numbers in each column count occurances, that is, they show how many times a verb is used by a character with that particular trait. 
+
+Here are the first rows of the contingency table:
+
+```{r}
+head(Character_verbs_contingency)
+```
+
+
+I've imported `situations.csv` and `characters.csv`, merged them and converted to a contingency table. Each character trait has become a column and the numbers in each column count occurances, that is, they show how many times a verb is used by a character with that particular trait. 
 
 I add a column called "target" (since this is the feature I want my predictive algorithms to target or to see as the outcome) which is set to TRUE if a verb ends in -ing and FALSE if not (`mutate(target = str_detect(Verb, "ing")` does this).
 
-The table above shows the distribution of passive and active verbs in the full dataset. 278 are passive, 469 active, for a total of 747 verbs. Note that this is the total verbs and says nothing about how often they are used. It may be a better strategy to do the machine learning on each occurance of the verb (each row in `situations.csv`) rather than in the way I'm doing here. 
+The table below shows the distribution of passive and active verbs in the full dataset. 278 are passive, 469 active, for a total of 747 verbs. Note that this is the total verbs and says nothing about how often they are used. It may be a better strategy to do the machine learning on each occurance of the verb (each row in `situations.csv` or in `Character_verbs`) rather than in the way I'm doing here. 
 
 ```{r}
 table(Character_verbs_contingency$target)
 ```
 
+62.7% of the verbs are active (ending in -ing) so this is a rather skewed dataset. 
+
+I'll run the kNN without normalising the data just to see how that goes, then try normalising it afterwards.
 
 # Split data: 70% training subset and 30% for testing
 
 There are 747 verbs in `Character_verbs_contingency`, the contingency table where each verb is an occurance and the columns have a count of how many characters with each trait use that verb. Split this into two subsets so we can train the kNN-algorithm on the `train` subset (70% of the data) and then test its accuracy on the `test` subset (30% of the data).  
 
-```{r}
+```{r split_dataset}
 # Set up random_70%_of_dataset}
 
 library(class)
@@ -171,6 +195,11 @@ split <- sample(1:nrow(Character_verbs_contingency),
                 as.integer(0.7*nrow(Character_verbs_contingency)), F)
 train <- Character_verbs_contingency[split,]
 test <- Character_verbs_contingency[-split,]
+
+# making a copy of test that I can use later, after overwriting this version
+# of test with the normalised data
+
+test_subset_original <- test
 
 # Put the target TRUE or FALSE in a vector called verb_train
 target_train <- train[2]
@@ -184,7 +213,7 @@ target_test <- test[2]
 
 Then run the kNN algorithm. I'm running the algorithm four times with different *k* (that is, different "numbers of nearest neighbours") to see how this affects the results.
 
-```{r}
+```{r knn_round1}
 # Run the knn 
 target_pred_k1 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=1)
 target_pred_k5 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=5)
@@ -196,30 +225,155 @@ target_pred_k20 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$
 
 ```{r actual_results}
 
-actual_target <- table(test$target)
+prediction <- data.frame("Actual_active_verbs" = test$target, target_pred_k1, target_pred_k5, target_pred_k15, target_pred_k20)
 
-```
-62% of the total verbs are active in the test subset. 64% are active in the train subset.  
-
-```{r k1_table}
-actual_target <- test$target
-table(target_pred, actual_target)
-```
-
-
-The accuracy rate of the prediction: 
-
-```{r average_accuracy}
-
-mean(target_pred == test$target)
+head(prediction)
 
 ```
 
-
+Let's check what the rate of active verbs is in the various k predictions. Active_actual is the proportion of verbs in the `test` subset of the full dataset. It's 61.7% so slightly lower than the overall distribution, but very close.
 
 ```{r}
 
+active_actual <- sum(test$target==1)/nrow(target_test)
+active_k1 <- sum(target_pred_k1==1)/nrow(target_test)
+active_k5 <- sum(target_pred_k5==1)/nrow(target_test)
+active_k15 <- sum(target_pred_k15==1)/nrow(target_test)
+active_k20 <- sum(target_pred_k20==1)/nrow(target_test)
 
+comparative_predictions <- data.frame(active_actual, active_k1, active_k5, active_k15, active_k20)
+
+comparative_predictions
+
+
+```
+So the predictions are classifying more verbs as active than are actually active in the dataset, and this skew gets *worse* the more neighbours it let's "vote". So this isn't much help.  
+
+# Normalising the data
+
+One problem might be that the numbers in the contingency table are so dissimilar. The kNN algorithm measures distance between neighbours, so if some values are 29 and others are 0 or 1, it's going to get messy. **Min-max normamlisation** "transforms a feature such that all of its values fall in a range between 0 and 1" (Lantz 73). In our dataset, we've described human characters "Accessing" something using machine vision technology 14 times, so the value for Human is 14 in `Character_verbs_contingency`. 
+
+We can use `max(Character_verbs_contingency$Human)` to see the maximum value for that variable:  "Watching" is used for 67 human characters. The minimum for the Human variable
+
+```{r}
+Character_verbs_contingency %>% filter(Human==67)
+```
+
+To normalise this, we take the value (14), subtract the minimum value for that variable (0), and divide this by the **range** of values for the variable, from the maximum to minimum value (67 minus 0 = 67). That can be written in R as `((x - min(x)) / (max(x) - min(x)))`. We create a function to do this for any value, and create a new dataframe called `Character_verbs_contingency_norm` where all the values are between 0 and 1.
+
+Running `summary(Character_verbs_contingency_norm)` shows the distributions of values for each of the variables, with the min and max values, the median and means, and the 1st and 3rd quartiles (what value is at 25% of the max and at 75%). 
+
+```{r}
+
+#define normalize function (from Lantz p. 80)
+normalise <- function(x) {
+      return ((x - min(x)) / (max(x) - min(x)))
+}
+
+Character_verbs_contingency_norm <- as.data.frame(lapply(Character_verbs_contingency[2:21], normalise))
+
+summary(Character_verbs_contingency_norm)
+
+```
+
+# Run same kNN predictions again.
+
+```{r}
+# Set up random_70%_of_dataset}
+
+library(class)
+
+# Setting the seed the same as in the previous round means the "random" rows selected
+# will be the same as last time, so the results are comparable. 
+set.seed(2022)
+split <- sample(1:nrow(Character_verbs_contingency_norm),
+                as.integer(0.7*nrow(Character_verbs_contingency_norm)), F)
+train <- Character_verbs_contingency_norm[split,]
+test <- Character_verbs_contingency_norm[-split,]
+
+## WHAT ARE THESE FOR??
+# Put the target TRUE or FALSE in a vector called verb_train
+#target_train <- train[2]
+
+# Same for the test group
+# Put the romnames in a vector called verb_train
+#target_test <- test[2]
+
+# Run the knn 
+target_pred_k1 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=1)
+target_pred_k5 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=5)
+target_pred_k15 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=15)
+target_pred_k20 <- knn(train = train[-c(1:2)], test = test[-c(1:2)], cl = train$target, k=20)
+
+
+# make new dataframe showing the predictions
+prediction <- data.frame("Actual_active_verbs" = test$target, target_pred_k1, target_pred_k5, target_pred_k15, target_pred_k20)
+
+# This would show the top of the new predictions based on normalised values
+# head(prediction)
+
+# Calculate proportion of active verbs predicted
+active_actual <- sum(test$target==1)/nrow(target_test)
+active_k1 <- sum(target_pred_k1==1)/nrow(target_test)
+active_k5 <- sum(target_pred_k5==1)/nrow(target_test)
+active_k15 <- sum(target_pred_k15==1)/nrow(target_test)
+active_k20 <- sum(target_pred_k20==1)/nrow(target_test)
+
+# Make dataframe compiling the prediction results
+comparative_predictions_norm <- data.frame(active_actual, active_k1, active_k5, active_k15, active_k20)
+
+# Show the results
+comparative_predictions_norm
+
+```
+Just to remind ourselves:
+
+```{r}
+comparative_predictions
+```
+
+Hm. Identical results. I probably did something wrong??
+
+I think I'm giving up on this method. 
+
+# Analysing the incorrect predictions
+
+This section is inspired by Munk, Olesen and Jacomy's 2022 paper [The Thick Machine: Anthropological AI between explanation and explication](https://doi.org/10.1177/20539517211069891), where they argue that the most useful way of using machine learning in anthropology might be to see where the predictions **fail**, because these failures "point us to deeper and more ambiguous situations where interpretation is hard and explication becomes both necessary and interesting". 
+
+We need to put the verb names back in to see what the predictions were. I'll also add in the overall frequency for each verb - how many times it was used by any characer. 
+
+```{r reinsert_verbs}
+verbs <- cbind(test_subset_original, prediction_norm)
+
+verbs
+```
+## False passives (verbs the algorithm incorrected predicted would end in -ed)
+
+Now we can filter out the false passives: verbs where the algorithm predicted passive when the verb was actually active. I'm just using the `k = 1` predictions since they were most accurate.
+
+```{r false_passives}
+false_passives <- verbs %>% 
+        filter(Actual_active_verbs == 1 & target_pred_k1 == 0)
+        
+false_passives <- false_passives$Verb
+
+false_passives
+```
+There are 37 false passives. 
+
+## False actives (verbs the algorithm incorrectly predicted would end in -ing)
+
+Now let's look at false actives: verbs where the algorithm incorrectly predicted the verb would be **active**:
+
+```{r}
+# find all the false actives
+false_actives <- verbs %>% 
+        filter(Actual_active_verbs == 0 & target_pred_k1 == 1)
+
+# create a vector that lists all the false actives
+false_actives <- false_actives$Verb
+
+false_actives
 
 ```
 
@@ -227,9 +381,15 @@ mean(target_pred == test$target)
 
 Maybe the way the data is formatted isn't right for this kind of prediction. I could try: 
 
-- normalizing the numbers
 - using kNN on `Character_verbs` instead of the contingency table, but transforming so each column is a specific trait ("Female") and the values are 1 or 0 based on the traits of the character who "used" the verb that particular time in that particular situation
+- The dataset is skewed with almost 2/3 of cases being active. I could remove some of the active verbs in the training dataset to make it 50/50 so the algorithm at least doesn't simply learn to make 64% active. 
+- I could take a different approach and look at the cases where the prediction was wrong to see whether those are particularly interesting cases
+- Maybe reducing the number of variables would help?
 
-Also, the dataset is skewed with almost 2/3 of cases being active. I could remove some of the active verbs in the training dataset to make it 50/50 so the algorithm at least doesn't simply learn to make 64% active. 
+Finally, maybe the character traits DON'T predict whether a verb is passive or active.  
 
-Finally, maybe the character traits DON'T predict the outcome. 
+# References
+
+Lantz, Brett. Machine Learning with R: Expert Techniques for Predictive Modeling. 3rd ed. Birmingham: Packt, 2019.
+
+Munk, Anders Kristian, Asger Gehrt Olesen, and Mathieu Jacomy. “The Thick Machine: Anthropological AI between Explanation and Explication.” Big Data & Society 9, no. 1 (2022): 205395172110698. https://doi.org/10.1177/20539517211069891.
