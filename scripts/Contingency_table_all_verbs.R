@@ -39,6 +39,8 @@ SitCounts <- Situations %>%
                         str_detect(Verb, "ing$") ~ "Active",
                         str_detect(Verb, "ed$") ~ "Passive"))
 
+write_csv(SitCounts, "data/situation_counts.csv")
+
 
 #Import characters file
 #define column types and factors
@@ -102,39 +104,15 @@ Characters <- Orig_Characters %>%
 # Merge these new columns back into Situations.
 
 Verbs <- merge(Situations, Characters, by = "Character", all = TRUE)
-# Verbs <- merge(SitCounts, Verbs, by = "Verb")
+
 
 
 
 #Make a contingency table for the Verbs
 Tech_verbs_contingency <- Verbs %>% 
         filter(!is.na(Technology)) %>% 
-        select(Verb, Genre, Technology, SituationID) %>% 
-        pivot_longer(cols= -c(Verb, SituationID),
-                     names_to = "variable", 
-                     values_to = "value") %>% 
-        group_by(Verb, SituationID, value) %>%
-        summarise(n=n()) %>% 
-        pivot_wider(names_from = "value", values_from = "n") %>% 
-        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
-        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
-
-Entity_verbs_contingency <- Verbs %>% 
-        filter(!is.na(Entity)) %>% 
-        select(Verb, Genre, Entity, SituationID) %>% 
-        pivot_longer(cols= -c(Verb, SituationID),
-                     names_to = "variable", 
-                     values_to = "value") %>% 
-        group_by(Verb, SituationID, value) %>%
-        summarise(n=n()) %>% 
-        pivot_wider(names_from = "value", values_from = "n") %>% 
-        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
-        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
-
-Character_verbs_contingency <- Verbs %>% 
-        filter(!is.na(Character)) %>% 
-        select(Verb, Gender, Species, RaceOrEthnicity, Age, Sexuality) %>%
-        pivot_longer(cols= -c(Verb),
+        select(Verb, Genre, Technology) %>% 
+        pivot_longer(cols= -Verb,
                      names_to = "variable", 
                      values_to = "value") %>% 
         group_by(Verb, value) %>%
@@ -143,9 +121,50 @@ Character_verbs_contingency <- Verbs %>%
         mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
         mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
 
-write_csv(Tech_verbs_contingency, "data/Tech_verbs_contingency.csv")
-write_csv(Character_verbs_contingency, "data/Character_verbs_contingency.csv")
-write_csv(Entity_verbs_contingency, "data/Entity_verbs_contingency.csv")
+Entity_verbs_contingency <- Verbs %>% 
+        filter(!is.na(Entity)) %>% 
+        select(Verb, Genre, Entity) %>% 
+        pivot_longer(cols= -Verb,
+                     names_to = "variable", 
+                     values_to = "value") %>% 
+        group_by(Verb, value) %>%
+        summarise(n=n()) %>% 
+        pivot_wider(names_from = "value", values_from = "n") %>% 
+        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+
+Character_verbs_contingency <- Verbs %>% 
+        filter(!is.na(Character)) %>% 
+        select(Verb, Gender, Species, RaceOrEthnicity, Age, Sexuality) %>%
+        pivot_longer(cols= -Verb,
+                     names_to = "variable", 
+                     values_to = "value") %>% 
+        group_by(Verb, value) %>%
+        summarise(n=n()) %>% 
+        pivot_wider(names_from = "value", values_from = "n") %>% 
+        mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+
+write_csv(Tech_verbs_contingency, "data/tech_verbs_contingency.csv")
+write_csv(Character_verbs_contingency, "data/character_verbs_contingency.csv")
+write_csv(Entity_verbs_contingency, "data/entity_verbs_contingency.csv")
+
+## --- ADDING WORK-LEVEL INFORMATION -- ##
+
+creativeworks <- read_csv(
+        "https://raw.githubusercontent.com/jilltxt/HumansRobotsAndMachineVision/main/data/creativeworks.csv")
+
+works_contingency <- creativeworks %>% 
+        select(WorkID, Genre, Country, Sentiment, Topic, 
+               TechRef, TechUsed) %>% 
+        distinct() %>% 
+        pivot_longer(cols= -WorkID,
+                     names_to = "variable", 
+                     values_to = "value") %>% 
+        group_by(WorkID, value) %>%
+        summarise(n=n()) %>% 
+        pivot_wider(names_from = "value", values_from = "n") %>% 
+        mutate_all(~replace(., is.na(.), 0))  # convert NA to 0 since it's count 
 
 
 ## --- correlation matrix - but this isn't very useful --- ###
