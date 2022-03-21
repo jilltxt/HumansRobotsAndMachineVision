@@ -1,4 +1,4 @@
-SituationID,title,Colours,AestheticCharacteristics,MachinePOV
+SituationID,Situation,Colours,AestheticCharacteristics,MachinePOV
 1660,"Data-Masks (Series) (reverse engineering facial recognition)",White,Metallic,False
 1903,"FACELESS (making a CCTV film)",NA,Glitchy,False
 1903,"FACELESS (making a CCTV film)",NA,"birds eye view",False
@@ -132,7 +132,7 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 3228,"A Disappeared Movement (Participants avoid surveillance cameras)",Orange,Scientific,False
 3228,"A Disappeared Movement (Participants avoid surveillance cameras)",Orange,Urban,False
 1157,"A Hipster Bar (hipster recognition)",Violet,Startup,False
-1157,"A Hipster Bar (hipster recognition)",Rosa,Startup,False
+1157,"A Hipster Bar (hipster recognition)",Pink,Startup,False
 2383,"A Memory Called Empire (Cloudhooks)",NA,NA,False
 2386,"A Memory Called Empire (Holographs)",Gold,NA,False
 2602,"A Scanner Darkly (Bob is Identified)",Red,Rectangular,True
@@ -1546,10 +1546,10 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 2434,"Rugal (Kang Ki-beom finds Song Mi-na´s earpiece)",White,Framed,True
 2434,"Rugal (Kang Ki-beom finds Song Mi-na´s earpiece)",Orange,Target,True
 2434,"Rugal (Kang Ki-beom finds Song Mi-na´s earpiece)",Orange,Framed,True
-2441,"Rugal (Kang Ki-beom use his eye to search through dental records)",White,Medical,True
-2441,"Rugal (Kang Ki-beom use his eye to search through dental records)",White,"3D Mesh",True
-2441,"Rugal (Kang Ki-beom use his eye to search through dental records)",Blue,Medical,True
-2441,"Rugal (Kang Ki-beom use his eye to search through dental records)",Blue,"3D Mesh",True
+2441,"Rugal (Kang Ki-beom uses his eye to search through dental records)",White,Medical,True
+2441,"Rugal (Kang Ki-beom uses his eye to search through dental records)",White,"3D Mesh",True
+2441,"Rugal (Kang Ki-beom uses his eye to search through dental records)",Blue,Medical,True
+2441,"Rugal (Kang Ki-beom uses his eye to search through dental records)",Blue,"3D Mesh",True
 1942,"Rugal (Optical implant predicts fight)",Black,Overlay,True
 1942,"Rugal (Optical implant predicts fight)",Red,Overlay,True
 2436,"Rugal (Track enemy through surveillance cameras)",NA,"control room",False
@@ -1791,6 +1791,8 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 2645,"Stellar (Band captures woman)",Green,Downwards,True
 2523,"STET (Ursula killed by self-driving car)",NA,Injustice,False
 2523,"STET (Ursula killed by self-driving car)",NA,inhumane,False
+3272,"StoryFace (User is told they are lying)",Red,Webpage,False
+3272,"StoryFace (User is told they are lying)",Red,Chatroom,False
 374,"Strange Beasts (AR playtime in park)",NA,NA,True
 1132,"Subnautica (Alterra Spectroscope Scanner)",Blue,Illuminated,False
 2757,"Subnautica (Holographic map and resource scan)",Blue,NA,False
@@ -1953,7 +1955,6 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 2468,"The Last Human (XR_935 finds a human)",NA,NA,True
 2465,"The Last Human (XR_935 is recognising)",NA,NA,True
 1928,"The Last One (drone)",NA,NA,False
-1937,"The Last One (news camera)",NA,NA,False
 1929,"The Last One (Reality Show)",NA,NA,False
 268,"The Machine Stops (Vashti sees Kuni)",Purple,Glowing,False
 268,"The Machine Stops (Vashti sees Kuni)",Blue,Glowing,False
@@ -1981,7 +1982,7 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 3158,"The Most Beautiful Women (replacing faces)",Black,Neoclassical,False
 3158,"The Most Beautiful Women (replacing faces)",White,Overlay,False
 3158,"The Most Beautiful Women (replacing faces)",White,Neoclassical,False
-1589,"The Murderbot Diaries (Murderbot and ART hacks security cameras)",NA,NA,True
+1589,"The Murderbot Diaries (Murderbot and ART hack security cameras)",NA,NA,True
 1592,"The Murderbot Diaries (Murderbot shares camera feed)",NA,NA,True
 1588,"The Murderbot Diaries (Murderbot watches through security cameras)",NA,NA,True
 1587,"The Murderbot Diaries (murderbots record everything)",NA,NA,True
@@ -2264,4 +2265,3 @@ SituationID,title,Colours,AestheticCharacteristics,MachinePOV
 3162,"Zanan Disruption (placing statues)",NA,Streetview,False
 3162,"Zanan Disruption (placing statues)",NA,Wide-angle,False
 3162,"Zanan Disruption (placing statues)",NA,3D,False
-2682,"ZARI (Robot and Dog becomes friends)",NA,NA,False

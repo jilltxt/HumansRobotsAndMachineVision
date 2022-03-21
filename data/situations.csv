@@ -2272,12 +2272,6 @@ SituationID,Situation,Genre,Character,CharacterID,Entity,Technology,Verb
 2687,BlinkyTM (Failing robot cooks son),Narrative,Alex Neville,2685,NA,NA,Killed
 2687,BlinkyTM (Failing robot cooks son),Narrative,NA,NA,NA,AI,Malfunctioning
 2687,BlinkyTM (Failing robot cooks son),Narrative,Alex Neville,2685,NA,NA,Provoking
-2682,ZARI (Robot and Dog becomes friends),Narrative,NA,NA,NA,AI,Communicating
-2682,ZARI (Robot and Dog becomes friends),Narrative,Shelly,2681,NA,NA,Befriending
-2682,ZARI (Robot and Dog becomes friends),Narrative,Shelly,2681,NA,NA,Communicating
-2682,ZARI (Robot and Dog becomes friends),Narrative,NA,NA,NA,AI,Befriending
-2682,ZARI (Robot and Dog becomes friends),Narrative,NA,NA,NA,AI,Recording
-2682,ZARI (Robot and Dog becomes friends),Narrative,Shelly,2681,NA,NA,Playing
 2679,Hyper Reality (Juliana`s account gets hacked),Narrative,Juliana Restrepo,2678,NA,NA,Hacked
 2679,Hyper Reality (Juliana`s account gets hacked),Narrative,NA,NA,NA,Motion tracking,Displaying
 2679,Hyper Reality (Juliana`s account gets hacked),Narrative,NA,NA,NA,Augmented reality,Failing
@@ -9589,3 +9583,12 @@ SituationID,Situation,Genre,Character,CharacterID,Entity,Technology,Verb
 243,Nineteen Eighty-Four (Surveillance cameras),Narrative,NA,NA,Government,NA,Surveilling
 243,Nineteen Eighty-Four (Surveillance cameras),Narrative,NA,NA,Government,NA,Monitoring
 243,Nineteen Eighty-Four (Surveillance cameras),Narrative,Winston Smith,241,NA,NA,Evading
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,NA,Emotion recognition,Comparing
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,User,NA,Analysed
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,User,NA,Communicating
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,NA,Emotion recognition,Disciplining
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,NA,Emotion recognition,Analysing
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,NA,Emotion recognition,Checking
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,User,NA,Threatened
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,User,NA,Lying
+3272,StoryFace (User is told they are lying),Narrative,NA,NA,NA,Emotion recognition,Threatening
