@@ -199,7 +199,6 @@ CharacterID,Character,Species,Gender,RaceOrEthnicity,Age,Sexuality,IsGroup,IsCus
 2692,"The Boy",Machine,Male,Unknown,Child,Unknown,False,False
 2691,"The Man",Human,Male,White,Adult,Unknown,False,False
 2685,"Alex Neville",Human,Male,White,"Young Adult",Unknown,False,False
-2681,Shelly,Animal,Female,Unknown,Unknown,Unknown,False,False
 2680,"Unknown hacker (Hyper reality)",Human,Unknown,Unknown,Unknown,Unknown,False,False
 2678,"Juliana Restrepo",Human,Female,"Person of Colour",Adult,Unknown,False,False
 2674,Amber,Human,Female,White,Adult,Heterosexual,False,False
