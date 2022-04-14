@@ -10,7 +10,7 @@ library(tidyverse)
 Situations <- read_csv("data/situations.csv",
                        col_types = cols(
                                SituationID = col_integer(),
-                               SituationTitle = col_character(), 
+                               Situation = col_character(), 
                                Genre = col_character(),
                                Character = col_character(),
                                Entity = col_character(),
@@ -31,12 +31,12 @@ library(syn)
 # dataset that are similar to flawed. Add the actual words from the dataset so they're
 # also included.
 # 
-flaws <- c(syn("flawed"), syn("mistaking"), syn("misidentifying"), 
+flaws <- c("Flawed", "Mistaking", "Misidentifying", "Malfunctioning", 
+           "Blinded", "Glitching", "Misclassifying", "Impaired",
+           syn("flawed"), syn("mistaking"), syn("misidentifying"), 
            syn("failing"), syn("malfunctioning"), syn("blinded"), 
            syn("glitching"), syn("misclassifying"), syn("distorted"), 
-           syn("damaged", syn("mutilated"), syn("biased")),
-           "Flawed", "Mistaking", "Misidentifying", "Malfunctioning", 
-           "Blinded", "Glitching", "Misclassifying", "Impaired")
+           syn("damaged"), syn("mutilated"), syn("biased"))
 
 # get synonyms for all THOSE synonyms. 
 # just doing syn(flaws) won't work, because you have to do syn on ecah
@@ -102,12 +102,12 @@ Situations %>%
 # But this is absolute count and it'd be more useful to see the proportions. 
 
 Situations %>% 
-        mutate(Flawed = case_when(Verb %in% flaws ~ "1",
-                                  TRUE ~ "0"),
+        mutate(Flawed = case_when(Verb %in% flaws ~ "Flawed",
+                                  TRUE ~ "Not flawed"),
                Agent = case_when(!is.na(Entity) ~ "Entity",
                                  !is.na(Technology) ~ "Technology",
                                  !is.na(Character) ~ "Character")) %>% 
-        filter(Flawed == 1 & Genre == "Narrative") %>%
+        filter(Flawed == "Flawed" & Genre == "Narrative") %>%
         filter(Verb != "Drained" 
                & Verb !="Faked"
                & Verb != "Irritated"
@@ -179,4 +179,25 @@ Situations %>%
         add_count(Flawed, name = "FlawFreq", sort = TRUE) %>% 
         ggplot(aes(x = Flawed, fill = Agent)) +
         geom_bar(position="fill") 
+
+
+# Messy testing -----------------------------------------------------------
+
+# only 7 verbs in set - check whether flaws is working
+
+test <- Situations %>% 
+        mutate(Flawed = case_when(Verb %in% flaws ~ "1",
+                                  TRUE ~ "0"),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character")) %>% 
+        select(Verb, Flawed, Entity, Technology, Agent)
+
+test <- Situations %>% 
+        mutate(Flawed = case_when(Verb %in% flaws ~ "Flawed",
+                                  TRUE ~ "Not flawed"),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character")) %>% 
+        filter(Genre == "Narrative")
 
