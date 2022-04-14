@@ -5,6 +5,9 @@ subtitle: Network analysis based on data from the Machine Vision database
 output:
   html_document:
     df_print: paged
+    toc: true
+    number_sections: true
+    code_folding: hide
 ---
 
 # Loading the network
@@ -15,10 +18,10 @@ This gives us a dataframe we'll call Character_verbs with a list of each charact
 
 ```{r setup}
 
-library(tidyverse)
-library(RColorBrewer)
-library(igraph)
-library(multiplex)
+suppressMessages(library(tidyverse))
+suppressMessages(library(RColorBrewer))
+suppressMessages(library(igraph))
+suppressMessages(library(multiplex))
 library(ggraph)
 library(graphlayouts)
 
@@ -302,7 +305,7 @@ THis method is from David Schoch's Network Visualizations in R using ggraph and 
 
 `V(verb_net)$cluster <- as.character(membership(cluster_louvain(verb_net)))`
 
-So Schach adds the cluster ID (1, 2 or 3 in my case) to a variable in `verb_net.
+So Schach adds the cluster ID (1, 2 or 3 in my case) to a variable in \`verb_net.
 
 ```{r cluster_method1_verb_net}
 
@@ -327,9 +330,10 @@ ggraph(verb_net, layout="fr") +
 
 
 ```
+
 ### Using `cluster_optimal()`
 
-Ognayanova has another way of showing communities using the function `cluster_optimal`, and also plots them with background colours. Instead of putting the cluster IDs in a variable on the network, Ognayanova puts them in a separate vector that she then plots **with** the network. 
+Ognayanova has another way of showing communities using the function `cluster_optimal`, and also plots them with background colours. Instead of putting the cluster IDs in a variable on the network, Ognayanova puts them in a separate vector that she then plots **with** the network.
 
 ```{r clusters_method2_with_background_colours}
 # From Sunbelt2019.
@@ -355,7 +359,6 @@ plot(clp, verb_net,
  
 ```
 
-
 ### The three clusters based on `cluster_optimal`:
 
 #### Seeing (or should we call it Analysing? Using as a tool?)
@@ -375,7 +378,8 @@ Watched, Fighting, Hacking, Informed, Investigating, Killing, Observing.
 Most of these express action, taking control. Interesting that Watched isn't in the other cluster. Perhaps these express a different kind of character as much as a different kind of situation?
 
 ### Possible problems, next steps
-I should compare the clustering results - clearly results will depend on which algorithm is used. There is at least one more cluster algorithm, `edge.betweenness.community(verb_net)`, though it doesn't work. The warnings the code produces are interesting though - it says it may not make sense because ´Modularity calculation with weighted edge betweenness community detection might not make sense -- modularity treats edge weights as similarities while edge betwenness treats them as distances`.
+
+I should compare the clustering results - clearly results will depend on which algorithm is used. There is at least one more cluster algorithm, `edge.betweenness.community(verb_net)`, though it doesn't work. The warnings the code produces are interesting though - it says it may not make sense because ´Modularity calculation with weighted edge betweenness community detection might not make sense -- modularity treats edge weights as similarities while edge betwenness treats them as distances\`.
 
 I found this quote from a paper:
 
@@ -383,8 +387,8 @@ I found this quote from a paper:
 
 This network isn't a "natural" network where each node has a direct relationship to another node, like in the social network in Les Miserables or the ecological network in the paper quoted above. It's more like a citation network (are there established terms for this difference?). An edge means that a character used both words - so information or disease certainly can't flow along a "shortest path" between two nodes. What exactly DOES a shortest path mean in a network like this? Some kind of similarity - but how to define that? Does betweenness still have analytical value in this kind of network?
 
-
 ### Next step - investigate correlation traits/action
+
 An interesting next step would be to investigate the traits of characters using each of these sets of verbs. That might be best done in a set of barcharts rather than using network visualistion, or perhaps using the [correlation plot Kabakoff mentions in 8.1](https://rkabacoff.github.io/datavis/Models.html#Corrplot)
 
 I think the `cluster_optimal` clusters give more interesting results than the louvain version. Let's try to use `cluster_optimal` with the ggraph version of the network.
@@ -403,7 +407,6 @@ ggraph(verb_net, layout="fr") +
         ggtitle("Three main kinds of action: analysing/seeing, evading and attacking (?)") +
         theme_void()
 ```
-
 
 ### Active vs passive verbs
 
@@ -641,6 +644,11 @@ V(verb_net)$EigenCent <- evcent(verb_net)$vector
 
 # Convert verb_net to a dataframe
 verb_df <- as_long_data_frame(verb_net)
+
+# NB FIX THIS so it includes ALL verbs not just those in from or to. 
+# Maybe make two datasets, so one is from and one two, then rename both from_name
+# and to_name columns just name, and merge by name - there's an option
+# (left_join? something) that lets you specify how to deal with the merge.
 
 # Select relevant columns in the dataframe we made of verb_net, sort them.
 verb_cluster_df <- verb_df %>% 
