@@ -2,9 +2,15 @@
 # by Jill Walker Rettberg
 # 28 Feb 2022
 # 
+# Released under a CC-BY license. 
 # 
-# Requires tidyverse and class - install these packages if they're not already 
-# installed.
+# This version of the scripts fetches the datasets from Github. Before 
+# publication of the commentary these links will be changed to 
+# the official version of the dataset archived in Dataverse, where it is awaiting 
+# review before publication.
+# 
+# Requires the packages tidyverse and class - install these packages if they're 
+# not already installed.
 # 
 # install.packages(tidyverse)
 # install.packages(class)
@@ -143,6 +149,7 @@ Character_verbs_contingency <- Character_verbs %>%
 
 # VISUALISE DISTRIBUTION OF TRAITS IN DATASET -----------------------------
 
+# Fig 1 - distribution of action proportional by trait --------------------
 
 # Plot barcharts showing the proportion of active and passive verbs for each
 # character trait. 
@@ -151,13 +158,40 @@ Character_verbs %>% select(Genre, Species, Gender,
         pivot_longer(!target, values_to = "value") %>%
         drop_na() %>% 
         ggplot(aes(x=factor(value), fill=factor(target))) +
-        scale_fill_manual(values=c("steelblue", "orangered1")) +
+        scale_fill_manual(name="Action type",
+                values=c("steelblue", "orangered1"),
+                labels=c("Passive", "Active")) +
         geom_bar(position="fill", alpha=.7)+
         theme( axis.line = element_line(colour = "darkblue", 
                                         size = 1, linetype = "solid")) +
         theme_minimal() +
-        labs(fill="Verb is active:", 
-             title ="Active or passive interactions with machine vision technologies",
+        labs(title ="Characters' interactions with machine vision technologies",
+             subtitle="(Proportional)",
+             y = "", 
+             x = "") +
+        theme(axis.text.x = element_blank()) +
+        coord_flip() +
+        facet_wrap(~name, scales="free")
+
+
+# Fig2 - Distribution by count --------------------------------------------
+
+# Same but using count, not proportion, which shows that some categories have small numbers. 
+
+Character_verbs %>% select(Genre, Species, Gender, 
+                           RaceOrEthnicity, Age, Sexuality, target) %>% 
+        pivot_longer(!target, values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=factor(value), fill=factor(target))) +
+        scale_fill_manual(name="Action type",
+                          values=c("steelblue", "orangered1"),
+                          labels=c("Passive", "Active")) +
+        geom_bar(position="fill", alpha=.7)+
+        theme( axis.line = element_line(colour = "darkblue", 
+                                        size = 1, linetype = "solid")) +
+        theme_minimal() +
+        labs(title ="Character interactions with machine vision technologies",
+             subtitle="(Absolute numbers)",
              y = "", 
              x = "") +
         theme(axis.text.x = element_blank()) +
@@ -255,10 +289,20 @@ Verb_pred1 <- merge(Verb_pred, Character_verbs, by = "Verb")
 Character_verb_predictions <- Verb_pred1 %>% 
         drop_na(prediction) 
 
-Character_verb_predictions
+# Add frequency count to compare predictions to how often an action is taken.
 
+pred <- Character_verb_predictions %>% 
+        add_count(Verb, name = "Count") %>% 
+        select(Verb, Count, Prediction_type, target) %>% 
+        distinct() %>% 
+        arrange(desc(Count))
+
+summary(pred)
+# shows that 75% of the actions are used 4 or less times. 
 
 # VISUALISE TRAITS OF UNPREDICTABLE ACTIONS ------------------------------------
+
+# fig3: false predictions proportional ------------------------------------
 
 # Plot barcharts showing the proportion of mispredicted  verbs for each
 # character trait. 
@@ -278,6 +322,32 @@ Character_verb_predictions %>%
         theme_minimal() +
         labs(fill="Predicted action:", 
              title ="Traits of characters whose actions were falsely predicted",
+             subtitle="(Proportional)",
+             y = "", 
+             x = "") +
+        theme(axis.text.x = element_blank()) +
+        coord_flip() +
+        facet_wrap(~name, scales="free")
+
+
+# fig4: False predictions count -------------------------------------------
+
+Character_verb_predictions %>% 
+        filter(Prediction_type != "Accurate") %>% 
+        select(Genre, Species, Gender, 
+               RaceOrEthnicity, Age, Sexuality, Prediction_type) %>% 
+        pivot_longer(!Prediction_type, values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=factor(value), fill=factor(Prediction_type))) +
+        scale_fill_manual(values=c("steelblue", "orangered1" )) +
+        geom_bar(position="dodge", alpha=.7)+
+        theme(axis.line = element_line(colour = "darkblue", 
+                                       size = 1, 
+                                       linetype = "solid")) +
+        theme_minimal() +
+        labs(fill="Predicted action:", 
+             title ="Traits of characters whose actions were falsely predicted",
+             subtitle = "(Absolute numbers)",
              y = "", 
              x = "") +
         theme(axis.text.x = element_blank()) +
