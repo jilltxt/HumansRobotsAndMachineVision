@@ -1,7 +1,8 @@
-# Script for Caring AIs.
+# Scripts to analyse the Machine Vision dataset. 
+# Written by Jill Walker Rettberg
 # 
-# Are AIs that are not portrayed as characters more likely to be 
-# flawed?
+# RQ: What characterises technologies, entities and characters that are tagged 
+# as classifying or being classified, or with similar actions?
 # 
 
 library(tidyverse)
@@ -20,7 +21,7 @@ Situations <- read_csv("data/situations.csv",
 )
 
 Situations %>% 
-        filter(Verb == "Flawed")
+        filter(Verb == "Classified")
 
 
 # First go at generating list of synonyms for flawed ----------------------
@@ -32,49 +33,34 @@ library(syn)
 
 # Make a vector (list of words) consisting of synonyms to verbs I know are in our
 # dataset that are similar to flawed. Add the actual words from the dataset so they're
-# also included.
+# also included. syn("classified") fetches synonyms to the word so we can expand the list.
 # 
-flaws <- c("Flawed", "Mistaking", "Misidentifying", "Malfunctioning", 
-           "Blinded", "Glitching", "Misclassifying", "Impaired", "Failing", 
-           "Distorted",
-           syn("flawed"), syn("mistaking"), syn("misidentifying"), 
-           syn("failing"), syn("malfunctioning"), syn("blinded"), 
-           syn("glitching"), syn("misclassifying"), syn("distorted"), 
-           syn("damaged"), syn("mutilated"), syn("biased"))
+classify <- c("Classified", "Classifying", "Identified", "Identifying", "Misidentified",  
+           "Misclassifying", "Misgendering", "Misgendered",
+           syn("classified"), syn("classifying"))
 
-# get synonyms for all THOSE synonyms. 
-# just doing syn(flaws) won't work, because you have to do syn on ecah
-# individual word (each value in the vector)
-# lapply lets you feed a vector to a function and have the function run on
-# each value consecutively. lapply produces a list, so we need to unlist it 
-# to get a vector again.
 
-more_flaws <- unlist(lapply(flaws, syn))
 
 # convert to title case (first letter capitalised) to match the capitalisations
 # in Situations$Verb. Subset only the synonyms that end in -ed or -ing. I 
 # suppose that last thing isn't really necessary, but...
 
-more_flaws <- str_to_title(
-        more_flaws[str_detect(more_flaws, "ing")|str_detect(more_flaws, "ed")])
+classify <- str_to_title(
+        classify[str_detect(classify, "ing")|str_detect(classify, "ed")])
 
 # Let's just get the "more flawed" verbs so we can weed out the outrageous ones. 
 view(Situations %>% 
-        mutate(Flawed = case_when(Verb %in% more_flaws ~ "1",
+        mutate(Classify = case_when(Verb %in% classify ~ "1",
                                   TRUE ~ "0"),
                Agent = case_when(!is.na(Entity) ~ "Entity",
                                  !is.na(Technology) ~ "Technology",
                                  !is.na(Character) ~ "Character")) %>% 
-        filter(Flawed == 1) %>% 
+        filter(Classify == 1) %>% 
         select(Verb) %>% 
         add_count(Verb) %>%
         distinct())
 
-# This gives 127 different verbs, far too many. The list includes verbs like 
-# controlling, running and following. But there are also some relevant verbs. 
-# Possibles: Overwhelmed, Wounded, Confused, Destroyed, Weakened, Deceived, Incapacitated,
-# Impaired, Injured, Blocked. But really, I think the list shows that the first "flaws"
-# is sufficient. I added a few extra verbs to the first set though.
+# This gives 12 different verbs. 
 
 flaws <- str_to_title(
         flaws[str_detect(flaws, "ing")|str_detect(flaws, "ed")])

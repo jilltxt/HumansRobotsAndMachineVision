@@ -1,0 +1,184 @@
+---
+title: "Exploring the creative works"
+subtitle: "Data visualisations based on creativeworks.csv from the Database of Machine Vision in Art, Games and Narratives"
+author: "Jill Walker Rettberg"
+output:
+  html_document: 
+    toc: yes
+    number_sections: yes
+    code_folding: hide
+    fig_caption: yes
+---
+
+This is a collection of visualisations showing the general distribution of the creative works and so on.
+
+Just started it March 2, 2022, more to come. 
+
+```{r setup}
+
+library(tidyverse)
+
+creativeworks <- read_csv(
+        "https://github.com/jilltxt/HumansRobotsAndMachineVision/raw/main/data/creativeworks.csv",
+        col_types = cols(
+                WorkID = col_integer(),
+                WorkTitle = col_character(),
+                Sentiment = col_factor(levels = c(
+                        "Exciting", "Flawed", "Helpful", "Neutral", "Wondrous",
+                        "Hostile","Oppressive", "Alien", "Creepy", "Subversive", 
+                        "Dangerous",  "Intrusive", "Empowering", "Protective", 
+                        "Intimate", "Misleading", "Fun", "Overwhelming", 
+                        "Prosocial", "Disgusting")),
+                Topic = col_factor(levels = c(
+                        "Nudity", "Social Media", "Romantic relationship", "Climate Change", 
+                          "Dystopian", "Horror", "Robots/androids", "Surveillance", "Automation", 
+                          "City", "Labour", "War", "Identity", "AI", "Animals", "Consciousness", 
+                          "Nature", "Companionship", "Competition", "Playful", "Family", 
+                          "Free will", "Physical violence", "Crime", "Hacking", "Conflict", 
+                          "Empathy", "Utopian", "Race", "Sex", "Cyborgs", "Inequality", 
+                          "Economy", "Grief", "Autonomous vehicles", "Gender")),
+                TechRef= col_factor(levels = c(
+                        "Holograms", "Augmented reality", "Ocular implant", 
+                        "Emotion recognition", "Surveillance cameras", "AI", 
+                        "Virtual reality", "Motion tracking", "Body scans", 
+                        "Drones", "MicroscopeOrTelescope", "Biometrics", 
+                        "Image generation", "Facial recognition", 
+                        "Object recognition",  "3D scans", "Machine learning", 
+                        "Filtering", "Deepfake", "Camera",  "Cameraphone", 
+                        "Interactive panoramas", "Non-Visible Spectrum", "UGV",
+                        "Webcams", "Satellite images")),
+                TechUsed= col_factor(levels = c(
+                        "Holograms", "Augmented reality", "Ocular implant", 
+                        "Emotion recognition", "Surveillance cameras", "AI", 
+                        "Virtual reality", "Motion tracking", "Body scans", 
+                        "Drones", "MicroscopeOrTelescope", "Biometrics", 
+                        "Image generation", "Facial recognition", 
+                        "Object recognition",  "3D scans", "Machine learning", 
+                        "Filtering", "Deepfake", "Camera",  "Cameraphone", 
+                        "Interactive panoramas", "Non-Visible Spectrum", "UGV",
+                        "Webcams", "Satellite images"))))
+
+```
+
+
+# Distribution of works by contintent
+```{r continents}
+
+library(countrycode)
+
+creativeworks$Continent <- countrycode(sourcevar = creativeworks$Country, origin = "country.name",destination = "region")
+
+creativeworks %>% 
+        select(WorkID, WorkTitle, Genre, Country, Continent) %>% 
+        distinct() %>% 
+        ggplot(aes(x=Genre, fill=Continent)) +
+        geom_bar() +
+        geom_text(stat = "count", 
+                  aes(label =..count..), 
+                  position = position_stack(vjust = 0.5)) +
+        labs(fill="", 
+             title ="Creative works by genre and continent",
+             subtitle = "Note that some works are associated with several countries so the sum is more than the total works in the dataset",
+             y = "", 
+             x = "") +
+        theme_minimal()
+
+
+```
+
+# Or the continents the works are from by genre
+
+```{r}
+library(countrycode)
+
+# Create new column called Region giving the region a country belongs to according
+# to  the World Bank Development Indicators. 
+# See https://cran.r-project.org/web/packages/countrycode/countrycode.pdf for details
+
+creativeworks$Region <- countrycode(sourcevar = creativeworks$Country, origin = "country.name",destination = "region")
+
+
+creativeworks %>% 
+        select(WorkID, WorkTitle, Genre, Country, Region) %>% 
+        distinct() %>% 
+        ggplot(aes(x=Region, fill=Genre)) +
+        geom_bar() +
+        geom_text(stat = "count", 
+                  aes(label =..count..), 
+                  position = position_stack(vjust = 0.5)) +
+        labs(fill="", 
+             title ="Creative works by region and genre",
+             subtitle = "Regions as defined in the World Bank Development Indicators",
+             y = "", 
+             x = "") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+```
+
+```{r}
+
+#same but with UN region instead of world bank as above
+
+creativeworks$UN_region <- countrycode(sourcevar = creativeworks$Country, origin = "country.name",destination = "un.region.name")
+
+creativeworks %>% 
+        select(WorkID, WorkTitle, Genre, Country, UN_region) %>% 
+        distinct() %>% 
+        ggplot(aes(x=UN_region, fill=Genre)) +
+        geom_bar() +
+        geom_text(stat = "count", 
+                  aes(label =..count..), 
+                  position = position_stack(vjust = 0.5)) +
+        labs(fill="", 
+             title ="Creative works by continent and genre (UN regions)",
+             subtitle = "Continents defined by United National regions",
+             y = "", 
+             x = "") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+```
+# Agiain with UN intermediate regions
+
+```{r}
+#same but with UN region instead of world bank as above
+
+creativeworks$Region <- countrycode(sourcevar = creativeworks$Country, origin = "country.name",destination = "un.regionsub.name")
+
+levels(creativeworks$Region) <- c("Northern Europe", "Eastern Europe",  "Western Europe", "Southern Europe", "Northern America", "Latin America and the Caribbean", 
+"Northern Africa",   "Sub-Saharan Africa", 
+"Eastern Asia","Central Asia","Western Asia","South-eastern Asia","Southern Asia", "Australia and New Zealand",   NA)
+
+creativeworks %>% 
+        select(WorkID, WorkTitle, Genre, Country, Region) %>% 
+        distinct() %>% 
+        ggplot(aes(x=factor(Region), fill=Genre)) +
+        geom_bar() +
+        geom_text(stat = "count", 
+                  aes(label =..count..), 
+                  position = position_stack(vjust = 0.5)) +
+        labs(fill="", 
+             title ="Creative works by continent and genre",
+             subtitle = "United Nations sub-regions",
+             y = "", 
+             x = "") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+```
+
+
+
+# Rather dodgy run-through
+
+ignore this - doesn't remove duplicates so narratives are vastly exaggerated. Probably can't use facet wrap like this. 
+
+```{r}
+creativeworks %>% 
+        select(Genre, Sentiment, Topic, Continent, TechRef, TechUsed) %>% 
+        gather() %>%
+        drop_na() %>% 
+  ggplot(aes(x=value), na.rm = TRUE) + 
+  geom_bar(fill="steelblue", alpha=.7) +
+  theme_minimal() +
+        coord_flip() +
+  facet_wrap(~key, scales="free")
+```

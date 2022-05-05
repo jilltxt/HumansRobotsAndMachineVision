@@ -1,4 +1,8 @@
-# Overview of data for data in brief paper
+# R scripts to generate figures for the paper "Representations of Machine Vision 
+# Technologies in Artworks, Games and Narratives: A Dataset", submitted to the 
+# journal Data in Brief in March 2022. 
+# 
+# The code was written by Jill Walker Rettberg.
 # 
 # 
 
@@ -66,13 +70,14 @@ CreativeWorks %>%
 
 # FIGURE 2: Plot geographic distribution --------------------------------------------
 
-library(countrycode)
 # See https://cran.r-project.org/web/packages/countrycode/countrycode.pdf
 # for description of this package's groupings of countries.
 # setting destination = "region" means
 # sorting countries into 7 regions as defined by the World Bank
 # development Indicators.
 # 
+library(countrycode)
+
 CreativeWorks$Continent <- countrycode(
         sourcevar = CreativeWorks$Country, 
         origin = "country.name",
@@ -172,7 +177,7 @@ CreativeWorks %>%
         theme(axis.text.x = element_text(angle=45, vjust=1, hjust = 1)) 
 
 
-# UK vs everything else ---------------------------------------------------
+# Fig3: European and Central Asian works in the ---------------------------------------------------
 
 CreativeWorks$Region <- countrycode(
         sourcevar = CreativeWorks$Country, 

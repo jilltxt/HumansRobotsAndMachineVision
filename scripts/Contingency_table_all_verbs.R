@@ -106,8 +106,6 @@ Characters <- Orig_Characters %>%
 Verbs <- merge(Situations, Characters, by = "Character", all = TRUE)
 
 
-
-
 #Make a contingency table for the Verbs
 Tech_verbs_contingency <- Verbs %>% 
         filter(!is.na(Technology)) %>% 
@@ -119,7 +117,9 @@ Tech_verbs_contingency <- Verbs %>%
         summarise(n=n()) %>% 
         pivot_wider(names_from = "value", values_from = "n") %>% 
         mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
-        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) %>% # new col target
+        relocate(Verb, target, Art, Game, Narrative) #put these cols first
+
 
 Entity_verbs_contingency <- Verbs %>% 
         filter(!is.na(Entity)) %>% 
@@ -131,7 +131,8 @@ Entity_verbs_contingency <- Verbs %>%
         summarise(n=n()) %>% 
         pivot_wider(names_from = "value", values_from = "n") %>% 
         mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
-        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) %>%  # new col target
+        relocate(Verb, target, Art, Game, Narrative)
 
 Character_verbs_contingency <- Verbs %>% 
         filter(!is.na(Character)) %>% 
@@ -143,7 +144,8 @@ Character_verbs_contingency <- Verbs %>%
         summarise(n=n()) %>% 
         pivot_wider(names_from = "value", values_from = "n") %>% 
         mutate_all(~replace(., is.na(.), 0)) %>%  # convert NA to 0 since it's count 
-        mutate(target = str_detect(Verb, "ing"), .after = Verb) # new col target
+        mutate(target = str_detect(Verb, "ing"), .after = Verb) %>%  # new col target 
+        relocate()
 
 write_csv(Tech_verbs_contingency, "data/tech_verbs_contingency.csv")
 write_csv(Character_verbs_contingency, "data/character_verbs_contingency.csv")
@@ -222,11 +224,4 @@ temp <- Character_verbs %>%
         
 write_csv(temp, "data/Character_verbs_percentages.csv")
 
-
-
-mutate(Prediction_type = case_when(target == 1 & prediction == 0 ~ "False Passive",
-                                   target == 0 & prediction == 1 ~"False Active",
-                                   target == 0 & prediction == 0 ~ "Accurate",
-                                   target == 1 & prediction == 1 ~ "Accurate",
-                                   TRUE ~ "Other")) %>% 
 
