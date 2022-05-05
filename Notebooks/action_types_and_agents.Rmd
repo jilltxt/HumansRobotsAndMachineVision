@@ -1,0 +1,236 @@
+---
+title: "Visualisations of which agents use specific groups of action"
+subtitle: "Hacking and hacked"
+author:
+- Jill Walker Rettberg, University of Bergen, jill.walker.rettberg@uib.no
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    number_sections: yes
+    code_folding: hide
+    df_print: paged
+  pdf_document:
+    toc: yes
+
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+This notebook contains scripts that allow you to set a group of actions
+(verbs in the dataset), to find synonyms of those actions that are also
+in the database, and to create plots to show what kinds of agents use
+those verbs.
+
+# Setup
+
+First we'll load the packages we're using.
+
+```{r, setup, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(syn)
+```
+
+## Set the actions 
+
+In the next bit of code, we define the actions we're interested in.
+
+```{r define_target_actions}
+
+target_action <- c("Hacking", "Hacked", "Tricking", "Tricked", "Repurposing", "Repurposed", 
+                   "Subverting", "Subverted", "Obfuscating", "Obfuscated", "Pranking", "Pranked")
+
+# Define what you want the actions to be called in the plot.
+
+name_of_target_actions <- "Hacking-related actions"
+name_of_NON_target_actions <- "Not hacking-related"
+
+plot_title <- "Which agents are hacking or hacked?"
+
+```
+
+Now import situations.csv.
+
+```{r import_situations}
+Situations <- read_csv("../data/situations.csv",
+                       col_types = cols(
+                               SituationID = col_integer(),
+                               Situation = col_character(), 
+                               Genre = col_character(),
+                               Character = col_character(),
+                               Entity = col_character(),
+                               Technology = col_character(),
+                               Verb = col_character()
+                       )
+)
+```
+
+## Look for synonyms
+
+Let's see if there are any more actions we should be including as well
+by using the syn() function to find synonyms to the verbs we set in
+target_action. Note that the syn package is based on the Moby thesaurus
+which is from 1996 and is often weak on verbs - it has none of the
+"Hacking" verbs in it, for instance, but many "Flawed" verbs.
+
+```{r find_synonyms}
+syns(target_action)
+
+```
+
+When `syn()` returns `character(0)` that means that there are no
+synonyms for the word in the thesaurus. If there are synonyms, you can
+run the following code to redefine target_actions to include both the
+verbs you entered at the start and the synonyms. The next lines convert
+the verbs to title case and delete any that don't end in -ing or -ed and
+finally those that aren't in our dataset.
+
+```{r add_synonyms}
+
+target_action <- c(target_action, unlist(lapply(target_action, syn)))
+target_action <- str_to_title(
+        target_action[str_detect(target_action, "ing")|str_detect(target_action, "ed")])
+target_action <- target_action[target_action %in% Situations$Verb]
+```
+
+# Visualisations
+
+Now we're ready to start examining the results.
+
+## Which agents perform the target actions?
+
+```{r plot_of_agents_and_target_actions, fig.height = 7}
+
+Situations %>% 
+        mutate(Target_action = case_when(Verb %in% target_action ~ name_of_target_actions,
+                                  TRUE ~ name_of_NON_target_actions),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character")) %>% 
+        filter(Target_action == name_of_target_actions) %>% 
+        select(Genre, Verb, Entity, Technology, Agent) %>% 
+        pivot_longer(!Verb, values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=fct_infreq(value), fill=Verb)) +
+        geom_bar(aes(y = ..count..))+
+        theme(axis.line = element_line(colour = "darkblue", 
+                                       size = 1, 
+                                       linetype = "solid")) +
+        theme_minimal() +
+        labs(title = plot_title,
+             subtitle="",
+             x = "") +
+        coord_flip() +
+        facet_wrap(~name, scales="free") 
+```
+
+## Same visualisation for agents that are NOT hacking or hacked
+
+```{r plot_of_agents_NOT_doing_target_actions, fig.height = 7}
+
+Situations %>% 
+        mutate(Target_action = case_when(Verb %in% target_action ~ name_of_target_actions,
+                                         TRUE ~ name_of_NON_target_actions),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character"),
+               VerbTense = case_when(str_detect(Verb, "ing") ~ "Active",
+                                     TRUE ~ "Passive")) %>% 
+        filter(Target_action != name_of_target_actions) %>% 
+        select(Genre, Verb, Entity, Technology, Agent, VerbTense) %>% 
+        pivot_longer(!c(Verb, VerbTense), values_to = "value") %>%
+        drop_na() %>% 
+        ggplot(aes(x=fct_infreq(value), fill = VerbTense)) +
+        geom_bar(aes(y = ..count..))+
+        theme(axis.line = element_line(colour = "darkblue", 
+                                       size = 1, 
+                                       linetype = "solid")) +
+        theme_minimal() +
+        labs(title = "Distribution of agents in all the OTHER actions",
+             subtitle="",
+             x="") +
+        coord_flip() +
+                facet_wrap(~name, scales="free") 
+```
+
+## Compare the target actions to the rest of the actions in the dataset
+
+The next plot compares the target actions - in this case actions
+relating to hacking and tricking machine vision - to the rest of the
+dataset. This is a "facet_grid" plot that shows a separate pane for each
+genre by whether the verbs are active or passive. Each of these six
+panes shows which agents, proportionally, do hacking-related and
+non-hacking related actions.
+
+```{r}
+
+Situations %>% 
+        mutate(Target_action = case_when(Verb %in% target_action ~ name_of_target_actions,
+                                         TRUE ~ name_of_NON_target_actions),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character"),
+               VerbTense = case_when(str_detect(Verb, "ing") ~ "Active",
+                                     TRUE ~ "Passive")) %>% 
+       #filter(Verb != "Drained") %>%  # remove # to manually remove any verbs that seem wrong
+        select(Target_action, Agent, Genre, VerbTense) %>% 
+        group_by(Agent, Target_action) %>% 
+        ggplot(aes(x = Target_action, fill = Agent)) +
+        geom_bar(position="fill") +
+        labs(title = "Actions shown by genre and whether they are active (-ing) or passive (-ed)",
+             subtitle="",
+             x = "Actions",
+             y = "Proportion of all interactions in dataset") +
+        coord_flip() +
+        facet_grid(VerbTense~Genre)
+
+```
+
+This is quite a dense visualisation to interpret!
+
+The top left pane shows active verbs in artworks. So, in artworks,
+technology is the agent in a little over half of all agent-action pairs
+for the non-hacking related active verbs, but technology is hardly ever
+an agent for the hacking-related actions. Entities are by far the most
+common agent for hacking-related *active* verbs in artworks. However,
+the bottom left pane shows that technology is by far the most common
+agent for *passive* verbs in artworks. Since entities can (for instnace)
+be users, governments or images, we'll need to dig deeper to understand
+that better.
+
+In narratives, characters are far more likely to be active agents with
+hacking-related verbs, while technology is more likely to be passive.
+The visualisation makes it very clear that hacking related actions are
+quite different in this respect from the non-hacking related verbs.
+
+## Same plot but by count instead of proportion
+
+The last plot was proportional, so you don't notice that there are of
+course WAY more non-hacking related actions than hacking-related
+actions. This is the same plot, but showing absolute numbers instead of
+the proportions.
+
+```{r}
+
+Situations %>% 
+        mutate(Target_action = case_when(Verb %in% target_action ~ name_of_target_actions,
+                                         TRUE ~ name_of_NON_target_actions),
+               Agent = case_when(!is.na(Entity) ~ "Entity",
+                                 !is.na(Technology) ~ "Technology",
+                                 !is.na(Character) ~ "Character"),
+               VerbTense = case_when(str_detect(Verb, "ing") ~ "Active",
+                                     TRUE ~ "Passive")) %>% 
+       #filter(Verb != "Drained") %>%  # remove # to manually remove any verbs that seem wrong
+        select(Target_action, Agent, Genre, VerbTense) %>% 
+        group_by(Agent, Target_action) %>% 
+        ggplot(aes(x = Target_action, fill = Agent)) +
+        geom_bar() +
+        labs(title = "Actions shown by genre and whether they are active (-ing) or passive (-ed)",
+             subtitle="",
+             x = "Actions",
+             y = "Proportion of all interactions in dataset") +
+        coord_flip() +
+        facet_grid(VerbTense~Genre)
+
+```
