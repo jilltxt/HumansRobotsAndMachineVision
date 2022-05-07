@@ -360,7 +360,7 @@ CharacterID,Character,Species,Gender,RaceOrEthnicity,Age,Sexuality,IsGroup,IsCus
 2163,R2-D2,Machine,Male,Unknown,Unknown,Unknown,False,False
 2161,Snoke,Fictional,Male,White,Elderly,Unknown,False,False
 2160,"Luke Skywalker",Human,Male,White,Elderly,Heterosexual,False,False
-2159,"Leia Skywalker Organa Solo",Human,Female,White,Elderly,Heterosexual,False,False
+2159,"Leia Organa",Human,Female,White,Elderly,Heterosexual,False,False
 2157,"Han Solo",Human,Male,White,Elderly,Heterosexual,False,False
 2155,Finn,Human,Male,Black,Adult,Heterosexual,False,False
 2154,"Rey Skywalker",Human,Female,White,Adult,Heterosexual,False,False
